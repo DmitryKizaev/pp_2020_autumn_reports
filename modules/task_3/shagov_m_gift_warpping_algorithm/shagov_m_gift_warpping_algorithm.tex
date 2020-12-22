@@ -142,7 +142,7 @@ Point searchMinPointParallel(const std::vector<Point> &mas, int rank, int procCo
 \begin{lstlisting}
 bool pointCheck(const Point& back, const Point& current, const Point& challenger);
 \end{lstlisting}
-\par Входным параметром является ссылки на неизменяемые точки. Функция возврашает \verb|true|, если претендент лучше нашего предыдущего претедента.
+\par Входным параметром является ссылки на неизменяемые точки. Функция возврашает \verb|true|, если новый претендент более подходящий.
 \end{itemize}
 \par Для удобства проведения экспериментов была реализованна функция, генерирующая вектор точек:
 \begin{lstlisting}
