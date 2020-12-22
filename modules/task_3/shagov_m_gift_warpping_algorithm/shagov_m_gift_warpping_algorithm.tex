@@ -128,23 +128,25 @@ std::vector<Point> buildConvexHullParallel(const std::vector<Point> &mas);
 \end{lstlisting}
 \par Входные и выходные данные аналогичны последовательному варианту.
 \par Обе функции вызывает внутри себя несколько других функций, перечисленных ниже.
-\par Данная функция ищет самую крайнюю левую точку в переданном массиве и возвращает её индекс:
+\begin{itemize}
+\par \item Данная функция ищет самую крайнюю левую точку в переданном массиве и возвращает её индекс:
 \begin{lstlisting}
 size_t searchMinPoint(const std::vector<Point> &mas);
 \end{lstlisting}
-\par Данная функция является параллельной версией поиска самой крайней левой точки:
+\par \item Данная функция является параллельной версией поиска самой крайней левой точки:
 \begin{lstlisting}
 Point searchMinPointParallel(const std::vector<Point> &mas, int rank, int procCount);
 \end{lstlisting}
 \par Входным параметром является ссылка на неизменяемый вектор, содержащий точки, ранг процесса, и их количество. Выходные параметры самая крайняя левая точка.
-\par Данная функция проверяет, входил ли точка в выпуклую оболочку:
+\par \item Данная функция проверяет, входил ли точка в выпуклую оболочку:
 \begin{lstlisting}
 bool pointCheck(const Point& back, const Point& current, const Point& challenger);
 \end{lstlisting}
 \par Входным параметром является ссылки на неизменяемые точки. Функция возврашает \verb|true|, если претендент лучше нашего предыдущего претедента.
-\par Данная функция проверяет, генерирует вектор точек:
+\end{itemize}
+\par Для удобства проведения экспериментов была реализованна функция, генерирующая вектор точек:
 \begin{lstlisting}
-bool pointCheck(const Point& back, const Point& current, const Point& challenger);
+std::vector<Point> createRandomPoints(size_t size);
 \end{lstlisting}
 \par Входным параметром является размер вектора. Возвращает функция сгенерированный вектор точек.
 \newpage
