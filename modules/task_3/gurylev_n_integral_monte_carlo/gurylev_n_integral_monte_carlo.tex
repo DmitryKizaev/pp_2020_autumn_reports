@@ -361,8 +361,8 @@ TEST(Parallel_Operations_MPI, test1_pol_operation) {
 }
 
 TEST(Parallel_Operations_MPI, test2_pol_operation) {
-    int rank;
     int n = 10000;
+    int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     double start = MPI_Wtime();
     std::vector<double>llim = { 1.25, 2.0 }, ulim = { 1.8, 3.0 };;
