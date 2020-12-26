@@ -1,0 +1,595 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+basicstyle=\footnotesize,
+keywordstyle=\color{blue}\ttfamily,
+stringstyle=\color{red}\ttfamily,
+commentstyle=\color{green}\ttfamily,
+morecomment=[l][\color{magenta}]{\#},
+tabsize=4,
+breaklines=true,
+breakatwhitespace=true,
+title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Построение выпуклой оболочки. Проход Грэхэма.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381808-2 \\ Хисматулина Карина\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А.В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Задача построения выпуклых оболочек, является одной из центральных задач вычислительной геометрии. Важность этой задачи происходит не только из-за огромного количества приложений (в распознавании образов, обработке изображений, базах данных, в задаче раскроя и компоновки материалов, математической статистике), но также и из-за полезности выпуклой оболочки как инструмента решения множества задач вычислительной геометрии. Очень широко алгоритмы построения выпуклой оболочки используются в геоинформатике и геоинформационных системах. Выпуклую оболочку объекта можно строить различными аналитическими способами, которые в основном являются сложными. Ниже предлагается один из способов построения выпуклой оболочки на языке C++ с использованием технологий MPI.
+
+\newpage
+
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В данной лабораторной работе необходимо реализовать построение минимальной выпуклой оболочки по алгоритму Грэхэма. Программа должна быть написана с возможностью запуска на нескольких процессах.
+Задача построения выпуклой оболочки заключается в том, что необходимо  получить некоторый вектор координат точек на плоскости и построить выпуклую область, которая включает все полученные точки и занимает минимальную возможную площадь.
+Результат — упорядоченное множество вершин выпуклой оболочки.
+Программа должна также уметь генерировать случайные множества точек и оценивать время выполнения.
+
+\par Цель – получение навыков распараллеливания задач компьютерной графики средствами библиотеки MPI.
+\par Критерии эффективности разработки:
+•	результаты тестирования корректности работы алгоритма (сравнение результатов работы линейной и параллельной версии программы)
+•	производительность параллельной версии программы выше, чем линейной(не достигнуто)
+\par Требования:
+•	Должна использоваться библиотека MPI
+•	Схема распараллеливания не зависит от количества предоставленных ресурсов
+
+\newpage
+
+\section*{Метод решения и описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par
+Если получено не более двух точек, выпуклая оболочка является точкой или отрезком и может быть построена сразу по полученным точкам. Иначе для нахождения выпуклой оболочки используется алгоритм Грэхэма.
+
+\par 
+Алгоритм Грэхэма:
+\par 
+	Находим точку P0 нашего множества с самой маленькой у-координатой (если таких несколько, берем самую правую из них), добавляем в ответ.
+\par 
+	Сортируем все остальные точки по полярному углу относительно P0 .
+\par 
+	Добавляем в ответ P1 - самую первую из отсортированных точек.
+\par 
+	Берем следующую по счету точку t. Пока t и две последних точки в текущей оболочке Pi и P(i-1) образуют неправый поворот (вектора Pi t и P(i-1) Pi), удаляем из оболочки Pi.
+	Добавляем в оболочку t.
+\par 
+\par 
+	Делаем п.5, пока не закончатся точки.
+\par 
+В программе выполняется вычисление косинусов углов, а не самих углов.
+Косинус вычисляется как частное скалярного произведения векторов (значения вектора — разности координат точек) и произведения длин тех же векторов.
+\newpage
+
+
+
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+В алгоритме Грэхэма для поиска точки выпуклой оболочки необходимо, чтобы были известны две предыдущие точки оболочки, потому между процессами постоянно должен осуществляться обмен данными.
+\par 
+\par 
+В начале программы равномерно распределим векторы координат точек между всеми процессами.
+\par 
+Чтобы найти нижнюю левую точку p1, найдем на каждом процессе крайнюю левую точку из множества точек, которое известно процессу, соберем результаты на нулевом процессе и найдем в полученном множестве точек крайнюю левую точку снова, эта точка будет результатом поиска.
+\par 
+Чтобы, зная точки pi и pi+1 , найти точку pi+2 с минимальным углом между прямыми  pi pi+1 и  pi+1 pi+2 , найдем на каждом процессе такую точку из известного процессу множества точек, соберем результаты на нулевом процессе и повторим в полученном множестве поиск необходимой точки.
+\par 
+Когда мы завершаем построение выпуклой оболочки, необходимо оповестить все процессы об этом.
+
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\par 
+Программа реализует линейную и параллельную версии алгоритма построение минимальной выпуклой оболочки.
+\par 
+Для начала работы с программой необходимо установить библиотеки MPI.
+\par 
+Запуск программы возможен только из интерфейса командной строки посредством введения в неё команды: [pathToMPI]/mpiexec.exe [–np [нужное кол-во процессов]] [путь к скомпилированному файлу].
+Код программы можно просмотреть в разделе «Приложение».
+\newpage
+
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе предусмотрена автоматическая проверка полного соответствия результата работы линейной версии алгоритма результату работы параллельной версии алгоритма.
+\newpage
+
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты проводились на 4-х ядерном компьютере с операционной системой – Windows 10, который имеет 8 логических процессоров. Результаты приведены в таблице:
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{llll}
+Элементы на входе & Паралл. время & Послед. время \\
+10(4 процесса) & 3.70999e-05 & 0.000156\\
+100(4 процесса) & 0.000811 & 0.001458\\
+1000(4 процесса) & 0.058932 & 0.105002\\
+10(8 процессов) & 4.05e-05 & 0.000955\\
+100(8 процессов) & 0.000668 & 0.001676\\
+1000(8 процессов) & 0.05913	 & 0.09285\\
+\end{tabular}
+\end{table}
+\par
+
+Из-за несовершенства параллельной части ускорение не достигается, однако при увеличении числа поступающих на вход элементов заметно уменьшается разница в скорости выполнения алгоритмов(до двух раз при 1000 элементах).
+\newpage
+
+
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Мной был изучен и реализован алгоритм Грэхэма для поиска выпуклой оболочки.
+\par 
+Реализация программы эффективна только при больших объемах данных, потому что при работе программы на нескольких процессах возникают накладные расходы.
+\newpage
+
+
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{parallel} Parallel: Лаборатория Параллельных информационных технологий НИВЦ МГУ [Электронный ресурс] // URL: \url {https://parallel.ru/vvv/mpi.html} (дата обращения: 28.11.2020)
+\bibitem{Algolist} Algolist: Алгоритмы, методы, исходники [Электронный ресурс] // URL: \url {http://algolist.manual.ru/sort/radix_sort.php} (дата обращения: 28.11.2020)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// Copyright 2020 Khismatulina Karina
+#include <algorithm>
+#include <vector>
+
+#ifndef MODULES_TASK_3_KHISMATULINA_K_GRAHAM_GRAHAM_H_
+#define MODULES_TASK_3_KHISMATULINA_K_GRAHAM_GRAHAM_H_
+
+class Point {
+ public:
+    double x;
+    double y;
+    Point() { x = 0; y = 0; }
+    Point(double _x, double _y) : x(_x), y(_y) {}
+    Point& operator=(const Point& A) {
+        if (this != &A) {
+            x = A.x;
+            y = A.y;
+        }
+        return *this;
+    }
+    bool operator==(const Point& p) {
+        return ((fabs(x - p.x) < 1e-7)) && (fabs(y - p.y) < 1e-7);
+    }
+    bool operator!=(const Point& p) {
+        return ((fabs(x - p.x) > 1e-7)) && (fabs(y - p.y) < 1e-7);
+    }
+    Point min(const Point& A, const Point& B) {
+        if (A.y < B.y) {
+            return A;
+        } else {
+            if ((fabs(A.y - B.y) < 1e-7) && (fabs(A.x - B.x) < 1e-7))
+                return A;
+        }
+        return B;
+    }
+    ~Point() { x = 0; y = 0; }
+};
+
+class Vector {
+ public:
+    double X;
+    double Y;
+    Vector() { X = 0; Y = 0; }
+    Vector(Point A, Point B) { X = B.x - A.x; Y = B.y - A.y; }
+    Vector(double X_, double Y_) { X = X_; Y = Y_; }
+    ~Vector() { X = Y = 0; }
+};
+
+
+double modul(const Vector& Vec);
+
+double skalyar(const Vector& Vec1, const Vector& Vec2);
+
+double cos(const Vector& A, const Vector& B);
+
+bool cw(double x1, double y1, double x2, double y2, double x3, double y3);
+
+std::vector<Point> GrahamPar(const std::vector<Point>& Points);
+
+std::vector<Point> GrahamSeq(const std::vector<Point>& Points);
+
+Point SearchMinPoint(const std::vector<Point>& Points);
+
+std::vector<Point> Sort(const std::vector<Point>& Points);
+
+std::vector<Point> GenPoints(int n);
+
+#endif  // MODULES_TASK_3_KHISMATULINA_K_GRAHAM_GRAHAM_H_
+
+\end{lstlisting}
+
+\begin{lstlisting}
+// Copyright 2020 Khismatulina Karina
+#include <mpi.h>
+#include <vector>
+#include <cmath>
+#include <ctime>
+#include <random>
+#include "../../../modules/task_3/khismatulina_k_graham/graham.h"
+//#include <opencv2/opencv.hpp>
+
+double modul(const Vector& Vec) {
+    return (sqrt(Vec.X * Vec.X + Vec.Y * Vec.Y));
+}
+
+double skalyar(const Vector& Vec1, const Vector& Vec2) {
+    return (Vec1.X * Vec2.X + Vec1.Y * Vec2.Y);
+}
+
+double cos(const Vector& A, const Vector& B) {
+    return (skalyar(A, B) / (modul(A) * modul(B)));
+}
+
+Point SearchMinPoint(const std::vector<Point>& Points) {
+    Point min_point = Points[0];
+    size_t i = 0;
+    while (i < Points.size()) {
+        min_point = min_point.min(min_point, Points[i]);
+        i += 1;
+    }
+    return min_point;
+}
+
+std::vector<Point> GenPoints(int n) {
+    if (n < 1)
+        throw "slishkom malo!!!";
+    std::vector<Point> p(n);
+    std::mt19937 gen;
+    for (int i = 0; i < n; i++) {
+        p[i].x = gen();
+        p[i].y = gen();
+    }
+    return p;
+}
+
+std::vector<Point> Sort(const std::vector<Point>& Points) {
+    std::vector<Point> P = Points;
+    Point min_point = SearchMinPoint(P);
+    std::vector<double> Cos(P.size());
+    Vector A(1, 0);
+    for (size_t i = 0; i < P.size(); i++) {
+        Vector B(min_point, Points[i]);
+        if (min_point == Points[i]) {
+            Cos[i] = 2;
+        } else {
+            Cos[i] = cos(A, B);
+        }
+    }
+    for (size_t i = 0; i < P.size() - 1; ++i) {
+        for (size_t j = 0; j < P.size() - i - 1; ++j) {
+            if (Cos[j + 1] > Cos[j]) {
+                Point tmp = P[j + 1];
+                P[j + 1] = P[j];
+                P[j] = tmp;
+                double tmp_cos = Cos[j + 1];
+                Cos[j + 1] = Cos[j];
+                Cos[j] = tmp_cos;
+            }
+        }
+    }
+    for (size_t i = 0; i < P.size() - 1; ++i) {
+        if (fabs(Cos[i + 1] - Cos[i]) < 0.000001) {
+            Vector Vec1(min_point, P[i]);
+            Vector Vec2(min_point, P[i + 1]);
+            if (modul(Vec1) > modul(Vec2)) {
+                Point temp = P[i + 1];
+                P[i + 1] = P[i];
+                P[i] = temp;
+            }
+        }
+    }
+    return P;
+}
+
+bool cw(double x1, double y1, double x2, double y2, double x3, double y3) {
+    return (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1) < 0;
+}
+
+std::vector<Point> GrahamSeq(const std::vector<Point>& P) {
+    std::vector<Point> Points = Sort(P);
+    if (Points.size() < 2) {
+        return Points;
+    }
+    std::vector<double> Res;
+    Res.push_back(Points[0].x);
+    Res.push_back(Points[0].y);
+    Res.push_back(Points[1].x);
+    Res.push_back(Points[1].y);
+    if (Points.size() > 2) {
+        for (size_t i = 2; i < Points.size(); ++i) {
+            while (cw(Res[Res.size() - 4], Res[Res.size() - 3], Res[Res.size() - 2],
+                Res[Res.size() - 1], Points[i].x, Points[i].y)) {
+                Res.pop_back();
+                Res.pop_back();
+            }
+            Res.push_back(Points[i].x);
+            Res.push_back(Points[i].y);
+        }
+    }
+    std::vector<Point> resPoint(Res.size() / 2);
+    for (size_t i = 0; i < Res.size(); i += 2) {
+        resPoint[i / 2].x = Res[i];
+        resPoint[i / 2].y = Res[i + 1];
+    }
+    return resPoint;
+}
+
+std::vector<Point> GrahamPar(const std::vector<Point>& Points) {
+    std::vector<double> Res;
+    std::vector<Point> P = Sort(Points);
+    int points_amount = P.size();
+    MPI_Status status;
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int delta = points_amount / size;
+    if (points_amount >= size) {
+        std::vector<double> Vec;
+        for (size_t i = 0; i < P.size(); ++i) {
+            Vec.push_back(P[i].x);
+            Vec.push_back(P[i].y);
+        }
+        std::vector<double> local_vec(2 * delta);
+        MPI_Scatter(&Vec[0], 2 * delta, MPI_DOUBLE, &local_vec[0], 2 * delta, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        if (rank == (size - 1)) {
+            size_t i = size * delta;
+            while (i < P.size()) {
+                local_vec.push_back(P[i].x);
+                local_vec.push_back(P[i].y);
+                i += 1;
+            }
+        }
+        std::vector<Point> l_P(local_vec.size() / 2);
+        for (size_t i = 0; i < local_vec.size(); i += 2) {
+            l_P[i / 2].x = local_vec[i];
+            l_P[i / 2].y = local_vec[i + 1];
+        }
+        std::vector<Point> local_res = GrahamSeq(l_P);
+        local_vec.clear();
+        for (size_t i = 0; i < local_res.size(); i++) {
+            local_vec.push_back(local_res[i].x);
+            local_vec.push_back(local_res[i].y);
+        }
+        int vec_n = local_vec.size();
+        std::vector<int> vec_size(size);
+        int N = 0;
+        MPI_Gather(&vec_n, 1, MPI_INT, &vec_size[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&vec_n, &N, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        std::vector<double> global_vec(N);
+        if (rank == 0) {
+            std::vector<int> address(size);
+            address[0] = 0;
+            for (int i = 1; i < size; i++) {
+                address[i] = vec_size[i - 1];
+            }
+            for (int i = 2; i < size; i++) {
+                address[i] += address[i - 1];
+            }
+            for (int i = 0; i < vec_n; i++) {
+                global_vec[i] = local_vec[i];
+            }
+            for (int i = 1; i < size; i++) {
+                MPI_Recv(&global_vec[address[i]], vec_size[i], MPI_DOUBLE, i, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            }
+        } else {
+            MPI_Send(&local_vec[0], vec_n, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+        }
+        if (rank == 0) {
+            std::vector<Point> global_res(global_vec.size() / 2);
+            size_t i = 0;
+            while (i < global_vec.size()) {
+                global_res[i / 2].x = global_vec[i];
+                global_res[i / 2].y = global_vec[i + 1];
+                i += 2;
+            }
+            std::vector<Point> res_point = GrahamSeq(global_res);
+            return res_point;
+        }
+    } else {
+        std::vector<Point> res_point = GrahamSeq(P);
+        return res_point;
+    }
+    return P;
+}
+
+\end{lstlisting}
+
+\begin{lstlisting}
+// Copyright 2020 Khismatulina Karina
+
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <math.h>
+#include <stack>
+#include <vector>
+#include <iostream>
+#include "../../../modules/task_3/khismatulina_k_graham/graham.h"
+//#include <opencv2/opencv.hpp>
+
+TEST(khismatulina_task_3, test_1_error) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) {
+        ASSERT_ANY_THROW(GenPoints(-1));
+    }
+}
+
+TEST(khismatulina_task_3, test_2_par_10) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<Point> Points{ {0, 0}, {1, 5}, {3, 6}, {-1, -4}, {2, 2}, {1, 2.5}, {1, -1}, {0, 1}, {0, 3}, {4, -1} };
+    std::vector<Point> P = Sort(Points);
+    std::vector<Point> res = GrahamPar(P);
+    std::vector<Point> check{ {-1, 0}, {4, 5}, {3, 6}, {1, -4}, {0, 2} };
+    bool a = 1;
+    if (rank == 0) {
+        for (size_t i = 0; i < res.size(); ++i)
+            if (res[i] != check[i])
+                a = 0;
+        EXPECT_EQ(a, 1);
+    }
+}
+
+TEST(khismatulina_task_3, test_3_par_100) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<Point> P = GenPoints(100);
+    std::vector<Point> res = GrahamPar(P);
+    std::vector<Point> check = GrahamSeq(P);
+    bool a = 1;
+    if (rank == 0) {
+        for (size_t i = 0; i < res.size(); ++i)
+            if (res[i] != check[i])
+                a = 0;
+        EXPECT_EQ(a, 1);
+    }
+}
+
+TEST(khismatulina_task_3, test_4_par_200) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<Point> P = GenPoints(200);
+    std::vector<Point> res = GrahamPar(P);
+    std::vector<Point> check = GrahamSeq(P);
+    bool a = 1;
+    if (rank == 0) {
+        for (size_t i = 0; i < res.size(); ++i)
+            if (res[i] != check[i])
+                a = 0;
+        EXPECT_EQ(a, 1);
+    }
+}
+
+TEST(khismatulina_task_3, test_5_par_500) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<Point> P = GenPoints(500);
+    std::vector<Point> res = GrahamPar(P);
+    std::vector<Point> check = GrahamSeq(P);
+    bool a = 1;
+    if (rank == 0) {
+        for (size_t i = 0; i < res.size(); ++i)
+            if (res[i] != check[i])
+                a = 0;
+        EXPECT_EQ(a, 1);
+    }
+}
+
+TEST(khismatulina_task_3, test_for_time) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<Point> P = GenPoints(1000);
+    double startTime, endTime;
+    startTime = MPI_Wtime();
+    std::vector<Point> res = GrahamPar(P);
+    if (rank == 0) {
+        endTime = MPI_Wtime();
+        std::cout << "par: " << endTime - startTime << std::endl;
+    }
+    if (rank == 0) {
+        bool a = 1;
+        startTime = MPI_Wtime();
+        std::vector<Point> check = GrahamSeq(P);
+        endTime = MPI_Wtime();
+        std::cout << "seq: " << endTime - startTime << std::endl;
+        EXPECT_EQ(a, 1);
+    }
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+\end{document}
+
