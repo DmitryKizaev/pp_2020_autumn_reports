@@ -1,0 +1,577 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поиск кратчайших путей из одной вершины (алгоритм Мура).»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381803-2 \\ Цветков М. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В. \\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Алгоритм Мура — алгоритм поиска кратчайшего пути во взвешенном графе. Алгоритм находит кратчайшие пути от одной вершины графа до всех остальных. В отличие от алгоритма Дейкстры, алгоритм Беллмана — Форда допускает рёбра с отрицательным весом. Предложен независимо Ричардом Беллманом и Лестером Фордом.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Дан ориентированный или неориентированный граф G со взвешенными рёбрами. Длиной пути назовём сумму весов рёбер, входящих в этот путь. Требуется найти кратчайшие пути от выделенной вершины s до всех вершин графа.
+
+Заметим, что кратчайших путей может не существовать. Так, в графе, содержащем цикл с отрицательным суммарным весом, существует сколь угодно короткий путь от одной вершины этого цикла до другой (каждый обход цикла уменьшает длину пути). Цикл, сумма весов рёбер которого отрицательна, называется отрицательным циклом.
+
+Цель данной работы - реализация параллельного и последовательного алгоритмов.
+\par Для реализации параллельной версии необходимо использовать средства MPI (Message Passing Interface). Для проверки корректности работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Алгоритм Мура заключается в следующем:
+\begin{itemize}
+    
+
+\item Решим поставленную задачу на графе, в котором заведомо нет отрицательных циклов.
+
+Для нахождения кратчайших путей от одной вершины до всех остальных, воспользуемся методом динамического программирования. Построим матрицу $A_{ij}$, элементы которой будут обозначать следующее: $a_{{ij}}$ — это длина кратчайшего пути из $s$ в $i$, содержащего не более $j$ рёбер.
+
+Путь, содержащий 0 рёбер, существует только до вершины s. Таким образом,  $A_{i0}$  равно 0 при  i=s, и  $+\infty$  в противном случае.
+
+Теперь рассмотрим все пути из s в i, содержащие ровно j рёбер. Каждый такой путь есть путь из j-1 ребра, к которому добавлено последнее ребро. Если про пути длины j-1 все данные уже подсчитаны, то определить j-й столбец матрицы не составляет труда.
+
+Так выглядит алгоритм поиска длин кратчайших путей в графе без отрицательных циклов:
+
+\item for 
+$v\in V$
+
+    do 
+ $d[v]\gets +\infty $
+ 
+$d[s]\gets 0$
+
+for
+$i\gets 1$ to 
+$|V|-1$
+
+ do for 
+$(u,v)\in E$
+
+    if 
+$d[v]>d[u]+w(u,v)$
+
+      then 
+$d[v]\gets d[u]+w(u,v)$
+
+return 
+d
+
+
+\item Здесь V — множество вершин графа G, E — множество его рёбер, а w — весовая функция, заданная на рёбрах графа (возвращает длину дуги, ведущей из вершины u в v), d — массив, содержащий расстояния от вершины s до любой другой вершины.
+
+Внешний цикл выполняется |V|-1 раз, поскольку кратчайший путь не может содержать большее число рёбер, иначе он будет содержать цикл, который точно можно выкинуть.
+
+Вместо массива d можно хранить всю матрицу A, но это требует $O(V^{2})$ памяти. Зато при этом можно вычислить и сами кратчайшие пути, а не только их длины. Для этого заведем матрицу  $P_{ij}$.
+
+Если элемент $A_{ij}$ содержит длину кратчайшего пути из s в i, содержащего j рёбер, то $P_{ij}$ содержит предыдущую вершину до i в одном из таких кратчайших путей (ведь их может быть несколько).
+
+Теперь алгоритм Беллмана-Форда выглядит так:
+\item for 
+$v\in V$
+  for 
+
+$i\gets$ 0 to 
+|V|-1
+    do 
+  
+$A_{{vi}}\gets +\infty $
+
+  
+$A_{{s0}}\gets 0$
+for 
+
+$i\gets$ 1 to 
+|V|-1
+  do for 
+
+$(u,v)\in E$
+    if 
+
+$A_{{vi}}>A_{{u,i-1}}+w(u,v)$
+      then 
+
+$A_{{vi}}\gets A_{{u,i-1}}+w(u,v)$
+
+$P_{{vi}}\gets$ u
+
+\item После выполнения этого алгоритма элементы $A_{i,j}$ содержат длины кратчайших путей от s до i с количеством рёбер j, и из всех таких путей следует выбрать самый короткий. А сам кратчайший путь до вершины i с j рёбрами восстанавливается так:
+\item while 
+  
+  
+j>0
+  
+$p[j]\gets i$
+  
+  $i\gets P_{ij}$
+  
+  
+$j\gets j-1$
+
+
+return p
+\end{itemize}
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+
+\par Для распараллеливания алгоритма Мура необходимо на каждом шаге делить вектор точек на равные подвектора, количество которых равно количеству процессов. Так, если размер исходного вектора не делится нацело на количество процессов, тогда остаток будет обрабатывать процесс с рангом 0. Затем процесс с рангом 0 раздает другим процессам их часть вектора. Каждый процесс находит свой $L_{k}$.
+\par Следующим шагом каждый процесс отправляет найденный $L_{k}$ процессу c рангом 0, который в свою очередь сравнивает значение полученного $L_{k}$ со своим. Если полученное значение больше текущего, тогда процесс с рангом 0 обновляет значение $L_{k}$ на полученное.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Последовательный алгоритм Мура вызывается с помощью функции:
+\begin{lstlisting}
+std::vector<int> Moor_alg(const std::vector<int>& g, int s,
+    int* f) 
+\end{lstlisting}
+\par Параллельный алгоритм Мура вызывается с помощью функции:
+\begin{lstlisting}
+std::vector<int> ParallelMoor(const std::vector<int>& g, int s,
+    int* f)
+\end{lstlisting}
+\par ParallelMoor(...) в свою очередь вызвает функцию для транспонирования вектора:
+\begin{lstlisting}
+std::vector<int> Transpose(const std::vector<int>& g, int n)
+\end{lstlisting}
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты проводились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel Core i5-8250 CPU @ 1.60GHz, ядер: 4;
+\item Оперативная память: 8 ГБ DDR3;
+\item ОС: Microsoft Windows 10 Home
+\end{itemize}
+
+\par Для проведения экспериментов производился запуск алгоритма на случайном графе:
+\\
+
+
+
+\begin{table}[!h]
+\begin{center}
+\begin{tabular}{lllll}
+Процессы & Последовательно(секунды) & Параллельно(секунды)  \\
+1        & 0.001         & 0.001           \\
+2        & 0.003        & 0.0009          \\
+3        & 0.002         & 0.0007         \\
+4        & 0.002       & 0.00057         \\
+5        & 0.003        & 0.0006       \\
+6        & 0.002         & 0.0004          
+\end{tabular}
+\end{center}
+\caption{Результаты вычислительных экспериментов}
+\centering
+\end{table}
+
+\par По данным, полученным в результате экспериментов, можно сделать вывод о том, что параллельный случай работает действительно быстрее, чем последовательный. 
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были разработаны последовательная и параллельная реализация алгоритма Мура.
+\par Основной задачей данной лабораторной работы была реализация распараллеливания по характеристикам, которая должна была быть эффективнее последовательной. Эта задача была успешно достигнута, о чем говорят результаты экспериментов, проведенных в ходе работы. Они показывают, что параллельный вариант работает действительно быстрее, чем последовательный.
+
+\newpage
+
+% Литература
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Литература}
+
+\bibitem{Voevodin} Воеводин В.В. «Лекция 5. Технологии параллельного программирования.
+Message Passing Interface (MPI)»
+
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В данном разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// Copyright 2020 Tsvetkov Maxim
+#ifndef  MODULES_TASK_3_TSVETKOV_M_ALG_MOOR_MOORS_ALGORITHM_H_
+#define  MODULES_TASK_3_TSVETKOV_M_ALG_MOOR_MOORS_ALGORITHM_H_
+
+#include <vector>
+
+std::vector<int> getRandomGraph(int size);
+std::vector<int> Transpose(const std::vector<int>& g, int n);
+std::vector<int> ParallelMoor(const std::vector<int>& g, int source,
+                                int* flag = nullptr);
+std::vector<int> Moor_alg(const std::vector<int>& g, int source,
+                                int* flag = nullptr);
+
+#endif  //  MODULES_TASK_3_TSVETKOV_M_ALG_MOOR_MOORS_ALGORITHM_H_
+
+\end{lstlisting}
+\newpage
+\begin{lstlisting}
+// Copyright 2020 Tsvetkov Maxim
+#include <mpi.h>
+#include <random>
+
+#include <cstdlib>
+#include <iomanip>
+#include <ctime>
+#include <vector>
+#include <stdexcept>
+#include <algorithm>
+#include <limits>
+#include "../../../modules/task_3/tsvetkov_m_alg_moor/moors_algorithm.h"
+
+static int offset = 0;
+const int MaxInf = 999999999;
+const int minInf = -1000000000;
+
+std::vector<int> getRandomGraph(int size) {
+    std::vector<int> g(size * size);
+    std::mt19937 gen;
+    std::uniform_int_distribution<int> gen2(0, 1000);
+    gen.seed((unsigned)time(0) + ++offset);
+    for (int i = 0; i < size; ++i)
+        for (int j = 0; j < size; ++j) {
+            g[j + i * size] = gen2(gen);
+            if (g[j + i * size] == 0) g[j + i * size] = MaxInf;
+            if (i == j) g[j + i * size] = 0;
+        }
+    return g;
+}
+
+std::vector<int> Transpose(const std::vector<int>& g, int n) {
+    std::vector<int> res(n * n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            res[i * n + j] = g[j * n + i];
+    return res;
+}
+
+std::vector<int> ParallelMoor(const std::vector<int>& g, int s,
+    int* f) {
+
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = static_cast<int>(sqrt(static_cast<int>(g.size())));
+    std::vector<int> d(n, MaxInf);
+    d[s] = 0;
+    const int delta = n / size;
+    const int k = n % size;
+    int tmp = delta + (rank < k ? 1 : 0);
+    std::vector<int> loc(tmp * n);
+    std::vector<int> loc_d(tmp, MaxInf);
+
+    if (loc.size() == 0)
+        loc.resize(1);
+
+    std::vector<int> sendcounts(size);
+    std::vector<int> displs(size);
+    std::vector<int> sendcounts_d(size);
+    std::vector<int> displs_d(size);
+
+    displs[0] = displs_d[0] = 0;
+    for (int i = 0; i < size; ++i) {
+        sendcounts[i] = (delta + (i < k ? 1 : 0)) * n;
+        sendcounts_d[i] = delta + (i < k ? 1 : 0);
+        if (i > 0) {
+            displs[i] = (displs[i - 1] + sendcounts[i - 1]);
+            displs_d[i] = displs_d[i - 1] + sendcounts_d[i - 1];
+        }
+    }
+
+    int root = -1;
+    for (int i = 0; i < size - 1; ++i)
+        if (s >= displs[i] / n)
+            root++;
+    if (rank == root)
+        loc_d[s - displs[rank] / n] = 0;
+
+    std::vector<int> send;
+    if (rank == 0)
+        send = Transpose(g, n);
+
+    MPI_Scatterv(send.data(), sendcounts.data(), displs.data(),
+        MPI_INT, &loc[0], tmp * n, MPI_INT, 0, MPI_COMM_WORLD);
+
+    for (int i = 0; i < n - 1; ++i) {
+        for (int k = 0; k < sendcounts_d[rank]; ++k) {
+            for (int j = 0; j < n; ++j)
+                if ((d[j] < MaxInf) && (loc[k * n + j] < MaxInf))
+                    if (loc_d[k] > d[j] + loc[k * n + j])
+                        loc_d[k] = std::max(d[j] + loc[k * n + j], minInf);
+        }
+        MPI_Allgatherv(loc_d.data(), tmp, MPI_INT, d.data(),
+            sendcounts_d.data(), displs_d.data(), MPI_INT, MPI_COMM_WORLD);
+    }
+
+    if (f) {
+        int f2 = 0;
+        *f = 0;
+        for (int k = 0; k < sendcounts_d[rank]; ++k)
+            for (int j = 0; j < n; ++j)
+                if ((d[j] < MaxInf) && (loc[k * n + j] < MaxInf)) {
+                    if (loc_d[k] > d[j] + loc[k * n + j]) {
+                        loc_d[k] = minInf;
+                        f2 = 1;
+                    }
+                }
+        MPI_Reduce(&f2, f, 1, MPI_INT, MPI_LOR, 0, MPI_COMM_WORLD);
+        MPI_Allgatherv(loc_d.data(), tmp, MPI_INT, d.data(),
+            sendcounts_d.data(), displs_d.data(), MPI_INT, MPI_COMM_WORLD);
+    }
+    return d;
+}
+
+std::vector<int> Moor_alg(const std::vector<int>& g, int s,
+    int* f) {
+    int n = static_cast<int>(sqrt(static_cast<int>(g.size())));
+    if (s < 0 || s >= n)
+        throw - 1;
+    std::vector<int> d(n, MaxInf);
+    d[s] = 0;
+
+    for (int i = 0; i < n - 1; ++i)
+        for (int j = 0; j < n; ++j)
+            for (int k = 0; k < n; ++k)
+                if ((d[j] < MaxInf) && (g[k + j * n] < MaxInf))
+                    if (d[k] > d[j] + g[k + j * n])
+                        d[k] = std::max(d[j] + g[k + j * n], minInf);
+
+    if (f) {
+        *f = 0;
+        for (int j = 0; j < n; ++j)
+            for (int k = 0; k < n; ++k)
+                if ((d[j] < MaxInf) && (g[k + j * n] < MaxInf)) {
+                    if (d[k] > d[j] + g[k + j * n]) {
+                        d[k] = minInf;
+                        *f = 1;
+                    }
+                }
+    }
+    return d;
+}
+
+\end{lstlisting}
+\newpage
+\begin{lstlisting}
+// Copyright 2020 Tsvetkov Maxim
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <iostream>
+#include <algorithm>
+#include "./moors_algorithm.h"
+
+TEST(Moors_Algorithm_MPI, Cant_Find_If_Incorrect_Source_Seq) {
+    int rank;
+    int n = 3;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> g(n * n);
+    if (rank == 0)
+        g = getRandomGraph(n);
+    std::vector<int> ans(n);
+    if (rank == 0) {
+        ASSERT_ANY_THROW(Moor_alg(g, (-1)));
+    }
+}
+
+TEST(Moors_Algorithm_MPI, Can_Find_If_Correct_Source_Seq) {
+    int rank;
+    int n = 3;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> g(n * n);
+    if (rank == 0)
+        g = getRandomGraph(n);
+    std::vector<int> ans(n);
+    if (rank == 0) {
+        ASSERT_NO_THROW(Moor_alg(g, (1)));
+    }
+}
+
+TEST(Moors_Algorithm_MPI, Test_On_Size_55) {
+    int rank;
+    int n = 55;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> g(n * n);
+    if (rank == 0)
+        g = getRandomGraph(n);
+    std::vector<int> ans1(n);
+    std::vector<int> ans2(n);
+    double t1;
+    if (rank == 0) {
+        t1 = MPI_Wtime();
+    }
+    ans1 = ParallelMoor(g, 0);
+
+    if (rank == 0) {
+        std::cout << "moor: " << MPI_Wtime() - t1 << std::endl;
+        t1 = MPI_Wtime();
+        ans2 = Moor_alg(g, 0);
+        std::cout << "Parallel moor: " << MPI_Wtime() - t1 << std::endl;
+        for (int i = 0; i < n; ++i) {
+            ASSERT_EQ(ans2[i], ans1[i]);
+        }
+    }
+}
+
+TEST(Moors_Algorithm_MPI, Test_On_Size_110) {
+    int rank;
+    int n = 110;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> g(n * n);
+    if (rank == 0)
+        g = getRandomGraph(n);
+    std::vector<int> ans1(n);
+    std::vector<int> ans2(n);
+    double t1;
+    if (rank == 0) {
+        t1 = MPI_Wtime();
+    }
+    ans1 = ParallelMoor(g, 0);
+    if (rank == 0) {
+        std::cout << "moor: " << MPI_Wtime() - t1 << std::endl;
+        t1 = MPI_Wtime();
+        ans2 = Moor_alg(g, 0);
+        std::cout << "Parallel moor: " << MPI_Wtime() - t1 << std::endl;
+        for (int i = 0; i < n; ++i) {
+            ASSERT_EQ(ans2[i], ans1[i]);
+        }
+    }
+}
+
+TEST(Moors_Algorithm_MPI, Test_On_Size_5) {
+    int rank;
+    int n = 5;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> g(n * n);
+    if (rank == 0)
+        g = getRandomGraph(n);
+    std::vector<int> ans1(n);
+    std::vector<int> ans2(n);
+    double t1;
+    if (rank == 0) {
+        t1 = MPI_Wtime();
+    }
+    ans1 = ParallelMoor(g, 0);
+    if (rank == 0) {
+        std::cout << "moor: " << MPI_Wtime() - t1 << std::endl;
+        t1 = MPI_Wtime();
+        ans2 = Moor_alg(g, 0);
+        std::cout << "Parallel moor: " << MPI_Wtime() - t1 << std::endl;
+        for (int i = 0; i < n; ++i) {
+            ASSERT_EQ(ans2[i], ans1[i]);
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+\end{document}
