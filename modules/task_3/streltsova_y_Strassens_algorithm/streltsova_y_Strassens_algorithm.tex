@@ -1,0 +1,667 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\LargeУмножение плотных матриц. Элементы типа double. Алгоритм Штрассена.} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-1 \\ Стрельцова Я. Д.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Алгоритм Штрассена предназначен для быстрого умножения матриц. Он был разработан Фолькером Штрассеном в 1969 году и является обобщением метода умножения Карацубы на матрицы.
+
+В отличие от традиционного алгоритма умножения матриц (по формуле ${\displaystyle c_{i,k}=\sum a_{i,j}b_{j,k}}$), работающего за время ${\displaystyle \Theta (n^{\log _{2}8})=\Theta (n^{3})}$), алгоритм Штрассена умножает матрицы за время ${\displaystyle \Theta (n^{\log _{2}7})=O(n^{2.81})}$, что даёт выигрыш на больших плотных матрицах начиная, примерно, от 64×64.
+
+Несмотря на то, что алгоритм Штрассена является асимптотически не самым быстрым из существующих алгоритмов быстрого умножения матриц, он проще программируется и эффективнее при умножении матриц относительно малого размера, поэтому именно он чаще используется на практике. 
+
+Применяя метод Штрассена для умножения чисел с плавающей точкой, нужно иметьв виду, что тип данных float не образует кольца, и потому алгоритм не обязан вычислятьправильные значения. На практике это может вылиться в накопление погрешности.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+С ипользованием средств MPI необходимо разработать параллельную и последовательную реализации алгоритма Штрассена, которые будут выполнять умножение плотных матриц с элементами типа double. Также необходимо провести сравнение времени работы, реализованных алгоритмов, и подтвердить корректность работы, используя Google Testing Framework.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+Пусть A, B — две квадратные матрицы над кольцом R. Матрица C получается по формуле:
+
+    {\displaystyle \mathbf {C} =\mathbf {A} \mathbf {B} \qquad \mathbf {A} ,\mathbf {B} ,\mathbf {C} \in R^{2^{n}\times 2^{n}}}
+
+Алгоритм Штрассена для вещественных чисел, применяемый для квадратных матриц, заключается в следующем:
+\begin{itemize}
+    \item Проверяем размер матрицы, если n < 64, то используем обычный метод.
+    \item Если размер умножаемых матриц n не является натуральной степенью двойки, мы дополняем исходные матрицы дополнительными нулевыми строками и столбцами. При этом мы получаем удобные для рекурсивного умножения размеры, но теряем в эффективности за счёт дополнительных ненужных умножений.
+    \item Разделяем A и B на четыре (n/2)×(n/2) подматрицы.
+    \item Сформировываем множители с помощью сложения и вычитания подматриц.
+    \item Рекурсивно выполняем 7 умножений подматриц.
+    \item Получаем результирующую матрицу C с помощью сложения и вычитания подматриц.
+\end{itemize}
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Чтобы реализовать параллельную реализацию алгоритма необходимо:
+\begin{itemize}
+    \item Передать размер матриц n из корневого процесса всем процессам группы, включая себя;
+    \item Проверить размер матриц, если n < 64, то вызвать функцию обычного последовательного умножения матриц;
+    \item Если размер умножаемых матриц n не является натуральной степенью двойки, дополнить исходные матрицы дополнительными нулевыми строками и столбцами;
+    \item Разделить A и B на четыре (n/2)×(n/2) подматрицы каждую: а11, а12, а21, а22, b11, b12, b21, b22;
+    \item Сформировать множители с помощью параллельного сложения и вычитания подматриц;
+    \item Рекурсивно вызвать 7 умножений подматриц: Р1, Р2, Р3, Р4, Р5, Р6, Р7;
+    \item Получить результирующую матрицу C с помощью параллельного сложения и вычитания подматриц:
+    
+        {\displaystyle \mathbf {C}_{1,1}=\mathbf {P}_{1}+\mathbf {P}_{4}-\mathbf {P}_{5}+\mathbf {P}_{7}
+    
+        {\displaystyle \mathbf {C} _{1,2}=\mathbf {P} _{3}+\mathbf {P} _{5}}
+    
+        {\displaystyle \mathbf {C} _{2,1}=\mathbf {P} _{2}+\mathbf {P} _{4}}
+    
+        {\displaystyle \mathbf {C} _{2,2}=\mathbf {P} _{1}-\mathbf {P} _{2}+\mathbf {P} _{3}+\mathbf {P} _{6}}
+    
+\end{itemize}
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\begin {enumerate}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\item Реализация алгоритма Штрассена содержит следующий класс:
+
+Класс для хранения матриц (содержит количество строк, столбцов и вектор вещественных значений элементов матрицы), который включает в себя такие методы, как конструкторы по умолчанию, с параметрами, с параметрами для генерации случайной матрицы, деструктор, перегруженные операторы присваивания и унарного минуса, а также метод print() для печати матрицы.
+\begin{lstlisting}
+class Matrix {
+ public:
+    int rows, cols;
+    std::vector<double> m;
+
+    Matrix();
+    Matrix(int _rows, int _cols);
+    Matrix(int _rows, int _cols, std::mt19937 _gen);
+    ~Matrix();
+    Matrix operator-() const;
+    const Matrix& operator=(const Matrix& a);
+    void print() const;
+}; 
+\end{lstlisting}
+\item Реализация алгоритма Штрассена содержит следующие функции:
+\end{enumerate}
+\begin{itemize}
+\itemФункция, которая дополняет исходную марицу нулевыми строками и столбцами до размера, равного степени двойки.
+\begin{lstlisting}
+Matrix* get_square_matrix(const Matrix& _a, int size);
+\end{lstlisting}
+\item Функция, которая удаляет лишние строки и столбцы, обрезая матрицу до исходного размера.
+\begin{lstlisting}
+Matrix* get_orig_size_matrix(const Matrix& _a, int size);
+\end{lstlisting}
+\item Функция, которая разделяет матрицу на 4 равных по размеру блока.
+\begin{lstlisting}
+void get_four_matrix(const Matrix& _a, Matrix** _a11, Matrix** _a12, Matrix** _a21, Matrix** _a22);
+\end{lstlisting}
+\item Функция, которая собирает из четырёх равных по размеру подматриц одну.
+\begin{lstlisting}
+Matrix* get_one_matrix(const Matrix& _a11, const Matrix& _a12, const Matrix& _a21, const Matrix& _a22);
+\end{lstlisting}
+\item Функция, выполняющая параллельное сложение двух матриц.
+\begin{lstlisting}
+Matrix* parallel_sum(const Matrix& _a, const Matrix& _b);
+\end{lstlisting}
+\item Функция, выполняющая последовательное сложение двух матриц.
+\begin{lstlisting}
+Matrix* sequential_sum(const Matrix& _a, const Matrix& _b);
+\end{lstlisting}
+\item Функция, выполняющая последовательное умножение двух матриц.
+\begin{lstlisting}
+Matrix* sequential_mul(const Matrix& _a, const Matrix& _b);
+\end{lstlisting}
+\item Функция, реализующая рекурсивный алгоритм Штрассена.
+\begin{lstlisting}
+Matrix* Strassen_alg(const Matrix& _a, const Matrix& _b);
+\end{lstlisting}
+\end{itemize}
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+\par Набор представляет из себя тесты, которые проверяют корректность вычислений (сравниваются матрицы, полученные благодаря параллельной и последовательной реализации алгоритма Штрассена), а также эффективность (вычисление времени, занимаемого последовательной и параллельной реализацией) на разных размерах матриц.
+\par Успешное прохождение всех тестов доказывает корректность работы программного комплекса.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельной реализации метода Штрассена проводились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz - 4.2GHz, 4 ядра, кол-во потоков: 8;
+\item Оперативная память: 8,00 ГБ, 2666 MHz;
+\item ОС: Microsoft Windows 10 Home, версия 20H2
+\end{itemize}
+
+\par Для проведения экспериментов алгоритм Штрассена применяем на матрицах размерами 128$\times$128 и 1024$\times$1024.
+\par Результаты экспериментов представлены в таблицах.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов 128x128}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение   \\
+2        & 0.07010         & 0.08045     & 0.8713        \\
+3        & 0.06936         & 0.08534     & 0.8127       \\
+4        & 0.07091         & 0.09737     & 0.7282       \\
+5        & 0.07580         & 0.10842     & 0.6991       \\
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов 1024x1024}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение   \\
+2        & 101.814         & 30.396      & 3.349        \\
+3        & 106.101         & 38.697      & 2.741       \\
+4        & 107.05          & 46.80       & 2.287       \\
+5        & 104.436         & 54.593      & 1.912       \\
+\end{tabular}
+\end{table}
+\par По данным, полученным в результате экспериментов, можно сделать вывод о том, что параллельный случай работает действительно быстрее, чем последовательный, на размерах матриц примерно 512$\times$512. 
+\par Кроме того, можно сделать вывод, что наиболее эффективным будет использование небольшого количества процессов для параллельного алгоритма Штрассена, т.к. много времени уходит на пересылку данных.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были разработаны последовательная и параллельная реализации алгоритма Штрассена.
+\par Основной задачей данной лабораторной работы была реализация параллельной версии с использованием средств MPI, которая должна быть эффективнее последовательной. Эта задача была успешно выполнена, о чём и этом говорят результаты экспериментов, проведенных в ходе работы. 
+\par Кроме того, были разработаны и доведены до успешного выполнения тесты, созданные для данного программного проекта с использованием Google C++ Testing Framework и необходимые для подтверждения корректности работы программы.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Levitin} Левитин А.В. Глава 4. Метод декомпозиции: Умножение больших целых чисел и алгоритм умножения матриц Штрассена // Алгоритмы: введение в разработку и анализ. — М.: «Вильямс», 2006. — С. 189-195. 
+Левитин А.В. Алгоритмы: введение в разработку и анализ.
+\bibitem{Wikipedia} Wikipedia: Алгоритм Штрассена - Википедия [Электронный ресурс] // URL: \url {https://en.wikipedia.org/wiki/Strassen_algorithm} (дата обращения: 05.12.2020)
+\bibitem{Algolib} Algolib. Коллекция алгоритмов [Электронный ресурс] // URL: \url {http://algolib.narod.ru/Math/Matrix.html}
+
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В данном разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// Strassens_algorithm.h
+// Copyright 2020 Streltsova Yana
+#ifndef MODULES_TASK_3_STRELTSOVA_Y_STRASSENS_ALGORITHM_STRASSENS_ALGORITHM_H_
+#define MODULES_TASK_3_STRELTSOVA_Y_STRASSENS_ALGORITHM_STRASSENS_ALGORITHM_H_
+#include <vector>
+
+class Matrix {
+ public:
+    int rows, cols;
+    std::vector<double> m;
+
+    Matrix();
+    Matrix(int _rows, int _cols);
+    Matrix(int _rows, int _cols, std::mt19937 _gen);
+    ~Matrix();
+    Matrix operator-() const;
+    const Matrix& operator=(const Matrix& a);
+    void print() const;
+};
+
+Matrix* get_square_matrix(const Matrix& _a, int size);
+Matrix* get_orig_size_matrix(const Matrix& _a, int size);
+void get_four_matrix(const Matrix& _a, Matrix** _a11, Matrix** _a12, Matrix** _a21, Matrix** _a22);
+Matrix* get_one_matrix(const Matrix& _a11, const Matrix& _a12, const Matrix& _a21, const Matrix& _a22);
+Matrix* parallel_sum(const Matrix& _a, const Matrix& _b);
+Matrix* sequential_sum(const Matrix& _a, const Matrix& _b);
+Matrix* sequential_mul(const Matrix& _a, const Matrix& _b);
+Matrix* Strassen_alg(const Matrix& _a, const Matrix& _b);
+
+#endif  // MODULES_TASK_3_STRELTSOVA_Y_STRASSENS_ALGORITHM_STRASSENS_ALGORITHM_H_
+\end{lstlisting}
+\begin{lstlisting}
+// Strassens_algorithm.cpp
+// Copyright 2020 Streltsova Yana
+#include <mpi.h>
+#include <random>
+#include <ctime>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <vector>
+#include "../../modules/task_3/streltsova_y_Strassens_algorithm/Strassens_algorithm.h"
+
+Matrix::Matrix() {
+    rows = 0;
+    cols = 0;
+}
+Matrix::Matrix(int _rows, int _cols) {
+    rows = _rows;
+    cols = _cols;
+    m = std::vector<double>(rows * cols, 0.);
+}
+Matrix::Matrix(int _rows, int _cols, std::mt19937 _gen) {
+    rows = _rows;
+    cols = _cols;
+    m = std::vector<double>(_rows * _cols);
+    for (size_t i = 0; i < m.size(); i++) {
+        std::uniform_real_distribution<> urd(0, 100);
+            m[i] = urd(_gen);
+    }
+}
+Matrix::~Matrix() {}
+Matrix Matrix::operator-() const {
+    Matrix tmp(rows, cols);
+    for (size_t i = 0; i < m.size(); i++)
+            tmp.m[i] = -m[i];
+    return tmp;
+}
+const Matrix& Matrix :: operator=(const Matrix& _a) {
+    if (this == &_a)
+        return *this;
+    rows = _a.rows;
+    cols = _a.cols;
+    m = _a.m;
+    return *this;
+}
+void Matrix::print() const {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++)
+            std::cout << m[i * cols + j] << " ";
+        std::cout << std::endl;
+    }
+}
+
+Matrix* get_square_matrix(const Matrix& _a, int size) {
+    Matrix* tmp = new Matrix();
+    int n = 2;
+    while (size > pow(2, n)) n++;
+    if (_a.rows == _a.cols && size == pow(2, n)) {
+        *tmp = _a;
+        return tmp;
+    }
+    size = pow(2, n);
+    *tmp = Matrix(size, size);
+    for (int i = 0; i < _a.rows; i++)
+        for (int j = 0; j < _a.cols; j++)
+            tmp->m[i * size + j] = _a.m[i * _a.cols + j];
+    return tmp;
+}
+
+Matrix* get_orig_size_matrix(const Matrix& _a, int size) {
+    Matrix* tmp = new Matrix(size, size);
+    for (int i = 0; i < size; i++)
+        for (int j = 0; j < size; j++)
+            tmp->m[i * size + j] = _a.m[i * _a.cols + j];
+    return tmp;
+}
+
+void get_four_matrix(const Matrix& _a, Matrix** _a11, Matrix** _a12, Matrix** _a21, Matrix** _a22) {
+    int n = _a.rows / 2;
+    *_a11 = new Matrix(n, n);
+    *_a12 = new Matrix(n, n);
+    *_a21 = new Matrix(n, n);
+    *_a22 = new Matrix(n, n);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+            (*_a11)->m[i * n + j] = _a.m[i * _a.cols + j];
+            (*_a12)->m[i * n + j] = _a.m[i * _a.cols + n + j];
+            (*_a21)->m[i * n + j] = _a.m[(n + i) * _a.cols + j];
+            (*_a22)->m[i * n + j] = _a.m[(n + i) * _a.cols + n + j];
+        }
+}
+
+Matrix* get_one_matrix(const Matrix& _a11, const Matrix& _a12, const Matrix& _a21, const Matrix& _a22) {
+    int n = _a11.rows;
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    Matrix* result = new Matrix(n * 2, n * 2);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+            result->m[i * result->cols + j] = _a11.m[i * n + j];
+            result->m[i * result->cols + n + j] = _a12.m[i * n + j];
+            result->m[(n + i) * result->cols + j] = _a21.m[i * n + j];
+            result->m[(n + i) * result->cols + n + j] = _a22.m[i * n + j];
+        }
+    return result;
+}
+
+Matrix* sequential_sum(const Matrix& _a, const Matrix& _b) {
+    Matrix* result = new Matrix(_a.rows, _a.cols);
+    for (size_t i = 0; i < _a.m.size(); i++)
+        result->m[i] = _a.m[i] + _b.m[i];
+    return result;
+}
+
+Matrix* parallel_sum(const Matrix& _a, const Matrix& _b) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int n = _a.rows;
+    int part = n / size;
+    std::vector<int> scounts(size, part * n);
+    int remain = n % size;
+    if (rank < remain)
+        scounts[rank] += n;
+    std::vector<int> displs(size, 0);
+    for (int i = 1; i < size; i++)
+        displs[i] = displs[i - 1] + scounts[i - 1];
+
+    std::vector<double> local_vec1(scounts[rank]), local_vec2(scounts[rank]);
+    MPI_Scatterv(_a.m.data(), scounts.data(), displs.data(), MPI_DOUBLE,
+        local_vec1.data(), scounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(_b.m.data(), scounts.data(), displs.data(), MPI_DOUBLE,
+        local_vec2.data(), scounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    for (int i = 0; i < scounts[rank]; i++)
+        local_vec1[i] += local_vec2[i];
+
+    Matrix* result = new Matrix(n, n);
+    MPI_Gatherv(local_vec1.data(), scounts[rank], MPI_DOUBLE,
+        result->m.data(), scounts.data(), displs.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    return result;
+}
+
+Matrix* sequential_mul(const Matrix& _a, const Matrix& _b) {
+    if (_a.cols != _b.rows)
+        throw "Matrices are not consistent";
+    Matrix* C = new Matrix(_a.rows, _b.cols);
+    for (int i = 0; i < _a.rows; i++)
+        for (int j = 0; j < _b.cols; j++)
+            for (int k = 0; k < _a.cols; k++)
+                C->m[i * _b.cols + j] += _a.m[i * _a.cols + k] * _b.m[k * _b.cols + j];
+    return C;
+}
+
+Matrix* Strassen_alg(const Matrix& _a, const Matrix& _b) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 0;
+    if (rank == 0)
+        n = _a.rows;
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    Matrix a(n, n), b(n, n);
+    if (rank == 0) {
+        a = _a;
+        b = _b;
+    }
+    MPI_Bcast(a.m.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(b.m.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (n <= 64)
+        return sequential_mul(a, b);
+    Matrix* A = get_square_matrix(a, n);
+    Matrix* B = get_square_matrix(b, n);
+    Matrix *a11, *a12, *a21, *a22, *b11, *b12, *b21, *b22;
+    get_four_matrix(*A, &a11, &a12, &a21, &a22);
+    get_four_matrix(*B, &b11, &b12, &b21, &b22);
+
+    Matrix* P1 = Strassen_alg(*parallel_sum(*a11, *a22), *parallel_sum(*b11, *b22));
+    Matrix* P2 = Strassen_alg(*parallel_sum(*a21, *a22), *b11);
+    Matrix* P3 = Strassen_alg(*a11, *parallel_sum(*b12, -*b22));
+    Matrix* P4 = Strassen_alg(*a22, *parallel_sum(*b21, -*b11));
+    Matrix* P5 = Strassen_alg(*parallel_sum(*a11, *a12), *b22);
+    Matrix* P6 = Strassen_alg(*parallel_sum(*a21, -*a11), *parallel_sum(*b11, *b12));
+    Matrix* P7 = Strassen_alg(*parallel_sum(*a12, -*a22), *parallel_sum(*b21, *b22));
+
+    Matrix* c11 = parallel_sum(*parallel_sum(*P1, *P4), *parallel_sum(-*P5, *P7));
+    Matrix* c12 = parallel_sum(*P3, *P5);
+    Matrix* c21 = parallel_sum(*P2, *P4);
+    Matrix* c22 = parallel_sum(*parallel_sum(*P1, -*P2), *parallel_sum(*P3, *P6));
+    return get_one_matrix(*c11, *c12, *c21, *c22);
+}
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+// Copyright 2020 Streltsova Yana
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <random>
+#include <ctime>
+#include "./Strassens_algorithm.h"
+
+TEST(Parallel_Operations_MPI, Test_7x7) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 7;
+    std::mt19937 gen(time(0));
+    Matrix a, b;
+    if (rank == 0) {
+        a = Matrix(n, n, gen);
+        b = Matrix(n, n, gen);
+    }
+    double start = MPI_Wtime();
+    Matrix* c_parallel = Strassen_alg(a, b);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel time: " << end - start << std::endl;
+        start = MPI_Wtime();
+        Matrix* A = get_square_matrix(a, n);
+        Matrix* B = get_square_matrix(b, n);
+        Matrix* c_seq = sequential_mul(*A, *B);
+        c_seq = get_orig_size_matrix(*c_seq, n);
+        end = MPI_Wtime();
+        std::cout << "Sequential time: " << end - start << std::endl;
+        c_parallel = get_orig_size_matrix(*c_parallel, n);
+        for (int i = 0; i < n * n; i ++)
+            ASSERT_DOUBLE_EQ(round(c_seq->m[i] * 10) / 10, round(c_parallel->m[i] * 10) / 10);
+    }
+}
+TEST(Parallel_Operations_MPI, Test_16x16) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 16;
+    std::mt19937 gen(time(0));
+    Matrix a, b;
+    if (rank == 0) {
+        a = Matrix(n, n, gen);
+        b = Matrix(n, n, gen);
+    }
+    double start = MPI_Wtime();
+    Matrix* c_parallel = Strassen_alg(a, b);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel time: " << end - start << std::endl;
+        start = MPI_Wtime();
+        Matrix* A = get_square_matrix(a, n);
+        Matrix* B = get_square_matrix(b, n);
+        Matrix* c_seq = sequential_mul(*A, *B);
+        c_seq = get_orig_size_matrix(*c_seq, n);
+        end = MPI_Wtime();
+        std::cout << "Sequential time: " << end - start << std::endl;
+        c_parallel = get_orig_size_matrix(*c_parallel, n);
+        for (int i = 0; i < n * n; i++)
+            ASSERT_DOUBLE_EQ(round(c_seq->m[i] * 10) / 10, round(c_parallel->m[i] * 10) / 10);
+    }
+}
+TEST(Parallel_Operations_MPI, Test_64x64) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 64;
+    std::mt19937 gen(time(0));
+    Matrix a, b;
+    if (rank == 0) {
+        a = Matrix(n, n, gen);
+        b = Matrix(n, n, gen);
+    }
+    double start = MPI_Wtime();
+    Matrix* c_parallel = Strassen_alg(a, b);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel time: " << end - start << std::endl;
+        start = MPI_Wtime();
+        Matrix* A = get_square_matrix(a, n);
+        Matrix* B = get_square_matrix(b, n);
+        Matrix* c_seq = sequential_mul(*A, *B);
+        c_seq = get_orig_size_matrix(*c_seq, n);
+        end = MPI_Wtime();
+        std::cout << "Sequential time: " << end - start << std::endl;
+        c_parallel = get_orig_size_matrix(*c_parallel, n);
+        for (int i = 0; i < n * n; i++)
+            ASSERT_DOUBLE_EQ(round(c_seq->m[i] * 10) / 10, round(c_parallel->m[i] * 10) / 10);
+    }
+}
+TEST(Parallel_Operations_MPI, Test_128x128) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 128;
+    std::mt19937 gen(time(0));
+    Matrix a, b;
+    if (rank == 0) {
+        a = Matrix(n, n, gen);
+        b = Matrix(n, n, gen);
+    }
+    double start = MPI_Wtime();
+    Matrix* c_parallel = Strassen_alg(a, b);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel time: " << end - start << std::endl;
+        start = MPI_Wtime();
+        Matrix* A = get_square_matrix(a, n);
+        Matrix* B = get_square_matrix(b, n);
+        Matrix* c_seq = sequential_mul(*A, *B);
+        c_seq = get_orig_size_matrix(*c_seq, n);
+        end = MPI_Wtime();
+        std::cout << "Sequential time: " << end - start << std::endl;
+        c_parallel = get_orig_size_matrix(*c_parallel, n);
+        for (int i = 0; i < n * n; i++)
+            ASSERT_DOUBLE_EQ(round(c_seq->m[i] * 10) / 10, round(c_parallel->m[i] * 10) / 10);
+    }
+}
+TEST(Parallel_Operations_MPI, Test_689x689) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int n = 689;
+    std::mt19937 gen(time(0));
+    Matrix a, b;
+    if (rank == 0) {
+        a = Matrix(n, n, gen);
+        b = Matrix(n, n, gen);
+    }
+    double start = MPI_Wtime();
+    Matrix* c_parallel = Strassen_alg(a, b);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel time: " << end - start << std::endl;
+        start = MPI_Wtime();
+        Matrix* A = get_square_matrix(a, n);
+        Matrix* B = get_square_matrix(b, n);
+        Matrix* c_seq = sequential_mul(*A, *B);
+        c_seq = get_orig_size_matrix(*c_seq, n);
+        end = MPI_Wtime();
+        std::cout << "Sequential time: " << end - start << std::endl;
+        c_parallel = get_orig_size_matrix(*c_parallel, n);
+        for (int i = 0; i < n * n; i++)
+            ASSERT_DOUBLE_EQ(round(c_seq->m[i] * 10) / 10, round(c_parallel->m[i] * 10) / 10);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
