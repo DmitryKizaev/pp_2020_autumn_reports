@@ -1,0 +1,437 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{indentfirst}
+\usepackage{pgfplots}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+
+\lstset{language=C++,
+basicstyle=\footnotesize,
+keywordstyle=\color{blue}\ttfamily,
+stringstyle=\color{red}\ttfamily,
+commentstyle=\color{green}\ttfamily,
+morecomment=[l][\color{magenta}]{\#},
+tabsize=4,
+breaklines=true,
+breakatwhitespace=true,
+title=\lstname,
+}
+
+%Переименовываем Оглавление в Содержание
+\addto\captionsrussian{\renewcommand \contentsname {\LARGE Содержание}}
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+Министерство образования и науки Российской федерации \\
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского \\
+Институт информационных технологий, математики и механики \\
+Направление подготовки: «Фундаментальная информатика и информационные технологии»
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\Large Отчет по лабораторной работе}
+\end{center}
+\begin{center}
+\textbf{\Large «Быстрая сортировка с простым слиянием»}
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\textbf{Выполнил:} \\
+студент группы 381806-1 \\
+Лютова Т.С.\\
+\\
+\textbf{Проверил:}\\
+доцент кафедры МОСТ, \\
+кандидат технических наук \\
+Сысоев А. В.\\ }
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+В современном мире мы часто сталкиваемся с ситуацией, когда нам нужно упорядочить данные по какому-то признаку. Например, расставить книги по алфавиту или выстроить людей по возрасту. Одним из способов такого упорядочения является сортировка.
+\par Сортировка является одним из базовых методов программирования. С ее помощью можно заметно упростить решение различных задач. Но зачастую возникают ситуации, когда задано слишком большое количество данных, тогда время выполнения заметно увеличивается. Данную проблему помогает решить возможность паралелльной реализации алгоритмов сортировки на нескольких процессорах.
+
+\par Например, с помощью алгоритмов быстрой сортировки и сортировки простым слиянием мы сможем выполнить параллельную реализацию нашей программы. То есть мы можем разделить наши данные на несколько частей, каждую из которых передать определенному процессору. Внутри каждого процесса отсортировать части и собрать их воедино с помощью простого слияния. Таким образом, время работы будет сокращено в несколько раз и задача будет решена эффективнее, чем обычным методом последовательной реализации.
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо реализовать последовательный и параллельный алгоритмы быстрой сортировки с простым слиянием. Реализацию парааллельного алгоритма необходимо выполнить с помощью библиотеки MPI. Кроме того, необходимо проверить корректность выполения работы алгоритмов, а также оценить их эффективность и сделать выводы на основе полученных результатов.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Быстрая сортировка представляет собой усовершенствованный метод сортировки, основанный на принципе обмена. Сложность быстрой сортировки в среднем составляет $\mathcal{O}(n\log{}n)$. Наихудшая оценка достигается при неудачном выборе опорного элемента.
+
+\par Алгоритм быстрой сортировки включает в себя несколько этапов: выбор опорного элемента, разбиение исходного набора данных на два подмножества относительно этого элемента. Разбиение выполняется таким образом, что справа от опорного элемента должны находиться данные, больше него, а слева меньше. На каждом шаге делим наборы еще на части, выбирая везде опорные точки. Реализация быстрой сортировки рекурсивна. Условием остановки является момент, когда мы больше не можем выполнить разделение.
+
+\par Аналогично рассмотрим сортировку слиянием.
+
+Сортировка слиянием подразумевает разбиение массива поровну до тех пор пока из одного массива не получится несколько мелких — размером не более двух элементов. Два элемента легко сравнить между собой и упорядочить в зависимости от требования: по возрастанию или убыванию.
+
+После разбиения следует обратное слияние, при котором в один момент времени (или за проход цикла) выбираются по одному элементу от каждого массива и сравниваются между собой. Наименьший (или наибольший) элемент отправляется в результирующий массив, оставшийся элемент остается актуальным для сравнения с элементом из другого массива на следующем шаге.
+
+В среднем сложность сортировки слиянием составляет O(n log n).
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания базового алгоритма}
+Быстрая сортировка является наиболее эффективным алгоритмом сортировки.
+
+Метод распараллеливания быстрой сортировки основан на том, что мы делим исходный набор данных на несколько частей, таким образом, чтобы каждая часть была передана какому-то процессу. \\
+
+Если число частей не равно числу процессов, то просто добавим в конец массива необходимое число данных, которые максимальны по значению, чтобы они никак не повлияли на алгоритм сортировки, и мы смогли просто удалить их из массива по завершению работы.\\
+
+Отсортированные части мы собираем из каждого процесса и соединяем их воедино с помощью сортировки слиянием.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Алгоритм последовательного вычисления многомерных интегралов вызывается функцией:
+\begin{lstlisting}
+std::vector<int> quickSortSequential(std::vector<int> arr);
+\end{lstlisting}
+\par В качестве входных параметров принимает - вектор значений для сортировки. Возвращает отсортированные значения.
+\par Алгоритм параллельного вычисления многомерных интегралов вызывается функцией:
+\begin{lstlisting}
+std::vector<int> quickSortParallel(const std::vector<int> arr);
+\end{lstlisting}
+\par В качестве входных параметров принимает - вектор значений для сортировки. Возвращает отсортированные значения.
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе существует набор тестов, разработанных с использованием Google C++ Testing Framework.
+\par 
+Представленные тесты проверяют сортировки, а именно сравниваются отсортированные вектора линейной и параллельной реализаций. Также проверяется эффективность с помощью измерения времени, полученные результаты выводятся в консоль.
+\par Успешное прохождение всех тестов доказывает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности быстрой сортировки простым слиянием проводились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i5-8250U, 1.60GHz, ядер: 2;
+\item Оперативная память: 8192 МБ (DDR3), 1600 MHz;
+\item ОС: Microsoft Windows 10 Home, версия 1903 сборка 18362.535.
+\end{itemize}
+
+\par Для проведения экспериментов производилась сортировка массива чисел размером 1111111.
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        & 2.263          & 2.266     & 0.99       \\
+2        & 2.191         & 1.283     & 1.7       \\
+3        & 2.237         & 1.004     & 2.22       \\
+4        & 2.248         & 0.928     & 2.42       \\
+5        & 2.252         & 0.948     & 2.37       \\
+6        & 2.214         & 0.971     & 2.28
+\end{tabular}
+\end{table}
+
+\par По результатам экспериментов видно, что параллельная реализация работает быстрее линейной. Но при шести процесах появляются регрессии. Происходит это по причине переключения между процессами и коллективного обмена данными. Приходим к выводу, что оптимальным числом процессов будет 4 - 5.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были разработаны последовательная и параллельная реализации быстрой сортировки и сортировки слиянием.
+\par Основная задача лабораторной работы была достигнута. Параллельная версия работает быстрее, что было доказано в ходе экспериментов.
+\par Тесты созданные с помощью Google C++ Testing Framework подтвердили корректность работы программы и помогли в проведении экспериментов.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Sidnev} Лабутина А.А. Учебный курс "Введение в методы параллельного программирования". Нижний Новгород, 207, 43 с. 
+\bibitem{parallel} Habr:[Электронный ресурс] // URL: \url {https://habr.com/ru/post/281675/}
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+Листинг кода лабораторной работы.
+\begin{lstlisting}
+//quick_sort.h
+// Copyright 2020 Lyutova Tanya
+#ifndef MODULES_TASK_3_LYUTOVA_T_QUICK_SORT_QUICK_SORT_H_
+#define MODULES_TASK_3_LYUTOVA_T_QUICK_SORT_QUICK_SORT_H_
+
+#include <vector>
+
+std::vector<int> getRandomVector(int size);
+void quickSortImplementation(std::vector<int>* array, int a, int b);
+std::vector<int> quickSortSequential(std::vector<int> arr);
+std::vector<int> mergeSort(std::vector<int> arr1, std::vector<int> arr2);
+std::vector<int> quickSortParallel(const std::vector<int> arr);
+
+#endif  // MODULES_TASK_3_LYUTOVA_T_QUICK_SORT_QUICK_SORT_H_
+\end{lstlisting}
+
+\begin{lstlisting}
+//quick_sort.cpp
+// Copyright 2020 Lyutova Tanya
+#include <mpi.h>
+#include <iostream>
+#include <vector>
+#include <ctime>
+#include <random>
+#include <algorithm>
+#include <climits>
+#include "../../modules/task_3/lyutova_t_quick_sort/quick_sort.h"
+
+std::vector<int> getRandomVector(int size) {
+    std::mt19937 gen;
+    gen.seed(static_cast<unsigned int>(time(0)));
+    std::vector<int> vector(size, 0);
+    for (int i = 0; i < size; ++i) {
+        vector[i] = gen() % 100;
+    }
+    return vector;
+}
+
+void quickSortImplementation(std::vector<int> *array, int a, int b) {
+    if (array == 0)
+        throw "Array is incorrect";
+    int first = a, last = b;
+    int middle, tmp;
+    middle = (*array)[(first + last) / 2];
+    do {
+        while ((*array)[first] < middle)
+            first++;
+        while ((*array)[last] > middle)
+            last--;
+        if (first <= last) {
+            tmp = (*array)[first];
+            (*array)[first] = (*array)[last];
+            (*array)[last] = tmp;
+            first++;
+            last--;
+        }
+    } while (first < last);
+
+    if (first < b)
+        quickSortImplementation(&(*array), first, b);
+    if (a < last)
+        quickSortImplementation(&(*array), a, last);
+}
+
+std::vector<int> quickSortSequential(std::vector<int> arr) {
+    quickSortImplementation(&arr, 0, static_cast<int>(arr.size()) - 1);
+    return arr;
+}
+
+std::vector<int> mergeSort(std::vector<int> arr1, std::vector<int> arr2) {
+    int i = 0, j = 0, l = 0;
+    int arr1S = static_cast<int>(arr1.size());
+    int arr2S = static_cast<int>(arr2.size());
+    std::vector<int> res(arr1S + arr2S);
+    while (i < arr1S && j < arr2S) {
+        if (arr1[i] <= arr2[j]) {
+            res[l] = arr1[i];
+            i++;
+        } else {
+            res[l] = arr2[j];
+            j++;
+        }
+        l++;
+    }
+    while (i < arr1S) {
+        res[l] = arr1[i];
+        i++;
+        l++;
+    }
+    while (j < arr2S) {
+        res[l] = arr2[j];
+        j++;
+        l++;
+    }
+    return res;
+}
+
+std::vector<int> quickSortParallel(std::vector<int> arr) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int old_size = static_cast<int>(arr.size());
+    if (old_size <= size)
+        return quickSortSequential(arr);
+    int arr_size = static_cast<int>(std::ceil(static_cast<double>(old_size) / size)) * size;
+    int local_size = arr_size / size;
+    arr.resize(arr_size, INT_MAX);
+
+    std::vector<int> local_vec(local_size);
+    MPI_Scatter(arr.data(), local_size, MPI_INT, local_vec.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
+    local_vec = quickSortSequential(local_vec);
+    MPI_Gather(local_vec.data(), local_size, MPI_INT, arr.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        std::vector<int> indexes;
+        for (int i = 0; i < size; i++)
+            indexes.push_back((i + 1) * arr_size / size);
+        for (int i = 0; i < size - 1; i++) {
+            std::vector<int> left = { arr.begin(), arr.begin() + indexes[i] };
+            std::vector<int> right = { arr.begin() + indexes[i], arr.begin() + indexes[i + 1] };
+            std::vector<int> merged = mergeSort(left, right);
+            std::copy(merged.begin(), merged.end(), arr.begin());
+        }
+    }
+    MPI_Bcast(arr.data(), arr_size, MPI_INT, 0, MPI_COMM_WORLD);
+    arr.resize(old_size);
+    return arr;
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+//main.cpp
+// Copyright 2020 Lyutova Tanya
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include "../../modules/task_3/lyutova_t_quick_sort/quick_sort.h"
+
+
+TEST(Sequential_Operations_MPI, Test_1) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank != 0) return;
+
+    std::vector<int> vec = {7, 8, 1, 2, 4, 5};
+    std::vector<int> expected_res = { 1, 2, 4, 5, 7, 8 };
+    std::vector<int> res = quickSortSequential(vec);
+
+    EXPECT_EQ(expected_res, res);
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array(5);
+    if (rank == 0)
+        array = getRandomVector(5);
+    std::vector<int> res = quickSortParallel(array);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0) {
+        std::vector<int> exp_arr = quickSortSequential(array);
+        ASSERT_EQ(exp_arr, res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_10) {
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+     std::vector<int> array(10);
+     if (rank == 0)
+         array = getRandomVector(10);
+     std::vector<int> res = quickSortParallel(array);
+     MPI_Barrier(MPI_COMM_WORLD);
+     if (rank == 0) {
+         std::vector<int> exp_arr = quickSortSequential(array);
+         ASSERT_EQ(exp_arr, res);
+     }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_13) {
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+     std::vector<int> array(13);
+     if (rank == 0)
+         array = getRandomVector(13);
+     std::vector<int> res = quickSortParallel(array);
+     MPI_Barrier(MPI_COMM_WORLD);
+     if (rank == 0) {
+         std::vector<int> exp_arr = quickSortSequential(array);
+         ASSERT_EQ(exp_arr, res);
+     }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_100) {
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+     std::vector<int> array(100);
+     if (rank == 0)
+         array = getRandomVector(100);
+     std::vector<int> res = quickSortParallel(array);
+     MPI_Barrier(MPI_COMM_WORLD);
+     if (rank == 0) {
+         std::vector<int> exp_arr = quickSortSequential(array);
+         ASSERT_EQ(exp_arr, res);
+     }
+}
+
+
+TEST(Parallel_Operations_MPI, Test_Size_111111) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array(111111);
+    if (rank == 0)
+        array = getRandomVector(111111);
+    std::vector<int> res = quickSortParallel(array);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0) {
+        std::vector<int> exp_arr = quickSortSequential(array);
+        ASSERT_EQ(exp_arr, res);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+\end{document}
