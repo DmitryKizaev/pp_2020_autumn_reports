@@ -1,0 +1,456 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+    basicstyle=\footnotesize,
+    keywordstyle=\color{blue}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+    commentstyle=\color{green}\ttfamily,
+    morecomment=[l][\color{magenta}]{\#},
+    tabsize=4,
+    breaklines=true,
+    breakatwhitespace=true,
+    title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Сортировка Шелла с простым слиянием.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-1 \\ Емельховская Екатерина\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+С помощью параллельного программирования можно ускорить работу многих алгоритмов. Алгоритм Шелла сортировки массива входит в данное число.
+\par
+Сортировка Шелла – алгоритм сортировки, идея которого состоит в сравнении элементов, стоящих на определённом расстоянии друг от друга. При данной сортировке сначала сравниваются и сортируются между собой значения, стоящие один от другого на некотором расстоянии d, выбор которого зависит от версии алгоритма (в изначальном варианте сортировки Шелла оно равно n / 2, где n – число элементов в сортируемом массиве). После этого процедура сравнения повторяется для меньших значений d (опять же, первоначально размер d уменьшался вдвое на каждой итерации) и завершается тогда, когда d становится равным единице. Эффективность сортировки Шелла в определённых случаях обеспечивается тем, что элементы “быстрее” встают на свои места.
+\par
+Для реализации параллельного алгоритма сортировки Шелла понадобится алгоритм слияния двух массивов. В данной лабораторной работе будет использовано обычное  слияние.
+\par
+Итак, параллельный алгоритм сортировки Шелла с обычным слиянием можно разделить на три этапа: разделение элементов массива на группы, сортировка полученных групп, слияние отсортированных групп.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В	рамках	лабораторной	работы	нужно	реализовать	параллельный	алгоритм сортировки Шелла с обычным слиянием. Необходимо реализовать следующие компоненты:
+\par
+Линейный алгоритм сортировки Шелла
+\par
+Алгоритм слияния двух массивов
+\par
+Параллельный алгоритм сортировки Шелла
+\par
+Вспомогательные функции для проверки работоспособности и эффективности
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+Программа состоит из модулей luginmshellsortmpi и luginmshellsort mpilib. Первый включает в себя файлы shellsort.h, в котором описаны и реализованы шаблонные методы, использующиеся в программе, и main.cpp, который содержит набор тестов для проверки работоспособности написанной программы.
+\par
+Метод линейной сортировки Шелла принимает итератор, указывающий на первый контейнер, итератор, указывающий на последний контейнер, оператор сравнения. Возвращает отсортированную структуру данных. Внутри метода каноничная реализация сортировки Шелла на c++.
+\par
+Метод слияния имеет специфическую реализацию в угоду эффективности программы. На вход принимает ссылку на вектор с отсортированными элементами, массив с отсортированными элементами, размер массива, оператор сравнения. Возвращает отсортированный вектор с элементами из входных данных.
+\par 
+Метод параллельной сортировки Шелла IShellSort принимает вектор с произвольным типом, оператор сравнения. Корневой процесс возвращает отсортированный вектор. Подробнее о данном методе поговорим в сл. пункте.
+\par 
+Из-за различия типов данных в языке c++ и типов данных в MPI, был реализован метод принимающий на вход произвольный элемент любого типа с++ и возвращает похожий тип данных MPI.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Распараллеливание происходит в методе IshellSort. Все процессы коммуникатора MPICOMMWORLD получают на вход неотсортированный вектор. В каждом отдельном процессе создается свой буфер. В целях соответствия идее алгоритма сортировки Шелла, распределение элементов начального вектора по процессам выполняется выборкой через шаг равный количеству процессов в MPICOMMWORLD. Далее на каждом процессе вызывается метод линейной сортировки Шелла. Отсортированные векторы сливаются попарно с шагом 2 в степени (n-1), где n – итерация цикла слияния.
+Рассмотрим пример слияния с 9 процессами:
+\par
+Итерация 1: 0< - 1, 2< - 3, 4<-5, 6  < - 7,8
+\par
+Итерация 2: 0 < - 2, 4  < - 6, 8 
+\par
+Итерация 3: 0 < - 4, 8 
+\par
+Итерация 4: 0 < - 8
+\par
+Условием остановки алгоритма слияния будет procNum < 2 в степени (n-1) где procNum – число процессов в MPICOMMWORLD.
+\par
+Передачу, прием данных между процессами обеспечивает пара функций MPISend и MPIRecv. В общем случаем не понятно сколько элементов надо принять процессу- получателю, поэтому исользуются функции MPIProbe и MPIGetCount. Первая получает информацию о сообщении, а вторая количество элементов в сообщении.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Методы, участвующие в параллельном алгоритме сортировки Шелла:
+\par
+MPIGetDatatype(…) – переводит тип данных с++ в тип данных MPI
+\par
+ShellSort(…) – представляет линейный алгоритм сортировки Шелла
+\par
+Merge(…) – производит слияние вектора и массива 
+\par
+Методы, генерирующие векторы для тестов:
+
+
+\begin{lstlisting}
+	std::vector<T> getSortedRandomArrayBottomUp(T type, int size, int
+_percentSkipped, int _percentRepeated)
+\end{lstlisting}
+\par
+type – переменная, определяющая тип возвращаемого вектора size – размер возвращаемого вектора
+\par
+percentSkipped – значение в процент шанса перескачить число в последовательности
+\par
+percentRepeated – значение в процент шанса повторить число в последовательности Данная функция генерирует рандомный вектор, элементы которого расположены по возрастанию от 0.
+
+\begin{lstlisting}
+		std::vector<T> getSortedRandomArrayTopDown(T type, int size, int _percentSkipped, int _percentRepeated)
+\end{lstlisting}
+\par
+type – переменная, определяющая тип возвращаемого вектора size – размер возвращаемого вектора
+\par
+percentSkipped – значение в процент шанса перескачить число в последовательности
+\par
+percentRepeated – значение в процент шанса повторить число в последовательности
+\par
+Данная функция генерирует рандомный вектор, элементы которого расположены по убыванию до 0.
+
+\begin{lstlisting}
+	std::vector<T> RandomizeArray(std::vector<T> array, int iterations) 
+\end{lstlisting}
+\par
+array – отсортированный вектор
+\par
+iterations – количество итераций запутывания
+
+
+
+\newpage
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Характеристики компьютера:
+Intel® Core™ i5-6440HQ CPU @ 2.60 GHz (4 ядра)
+8.00 GB RAM
+ОС Windows 10.
+Было проведено 12 экспериментов с разным количеством процессов и данных
+
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Количество процессов & 1ый процесс & 20й процесс & 3ой процесс & 4ый процесс\\
+100000 & 3.67213 c & 2.05103 c & 1.6725 c & 1.44883 c\\
+500000 & 28.3949 с & 17.4589 с & 15.5429 с & 13.4207 с\\
+1000000 & 65.1756 с & 51.9614 с & 47.4694 с & 40.552 с\\
+\end{tabular}
+\end{table}
+\par
+По результатам экспериментов видно, что при при увеличении количества процессов, алгоритм работает в разы быстрее, а значит работает корректно и эффективно.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Реализованный параллельный алгоритм сортировки Шелла не идеален, но  работает корректно. Так же в приложении можно найти код программы и посмотреть реализацию на c++. В дополнение была реализована поддержка шаблонности и пользовательского оператора сравнения элементов. Чтобы отсортировать вектор со своим типом данных, нужно добавить обработку перевода типа c++ в тип MPI в методе MPIGetDatatype(…).
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Параллельные вычисления(базовый курс).
+
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// Copyright 2020 Emelkhovsky Ekaterina
+#ifndef MODULES_TASK_3_EMELKHOVSKY_E_SHELL_SORT_SHELL_SORT_H_
+#define MODULES_TASK_3_EMELKHOVSKY_E_SHELL_SORT_SHELL_SORT_H_
+
+#include <mpi.h>
+#include <vector>
+
+std::vector<int> compareResults(std::vector<int> list);
+std::vector<int> shell_sort(std::vector<int> list);
+
+
+#endif  // MODULES_TASK_3_EMELKHOVSKY_E_SHELL_SORT_SHELL_SORT_H_
+
+
+\end{lstlisting}
+\begin{lstlisting}
+// Copyright 2020 Emelkhovsky Ekaterina
+
+#include <mpi.h>
+#include <algorithm>
+#include <iostream>
+#include <vector>
+#include "../../../modules/task_3/emelkhovsky_e_shell_sort/shell_sort.h"
+
+std::vector<int> compareResults(std::vector<int> list) {
+    int len = list.size();
+
+    for (int i = 1; i < len; i++) {
+        int j = 1;
+        while ((i - j >= 0) && (list[i - j + 1] < list[i - j])) {
+            int tmp = list[i - j + 1];
+            list[i - j + 1] = list[i - j];
+            list[i - j] = tmp;
+            j++;
+        }
+    }
+    return list;
+}
+
+std::vector<int> shell_sort(std::vector<int> list) {
+    if (list.empty() || (list.size() < 2))
+        return list;
+
+    int procNum;
+    MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+    int procRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    MPI_Status status;
+
+    int len = list.size();
+    int part = len;
+    int lenin, count_of_parts, count_of_processes, count, count_2;
+    int tmp = 0;
+    int countProcNum = 0;
+
+
+    while (part != 0) {
+        part = part / 2;
+        count_of_parts = part / procNum;
+        count_of_processes = part % procNum;
+
+        if (part < procNum) {
+            count = part;
+        } else {
+            count = procNum;
+        }
+
+        count_2 = count_of_parts;
+
+        if (count_of_processes > 0) {
+            count_2++;
+        }
+
+        tmp = 0;
+        countProcNum = 0;
+        lenin = len / part;
+        std::vector<int> list_value(lenin);
+        std::vector<int> localArrayForRoot(lenin);
+
+        do {
+            if (countProcNum + count_of_processes == part) {
+                count = count_of_processes;
+            }
+
+            for (int proc = 0; proc < count; proc++) {
+                if (procRank == 0) {
+                    list_value.clear();
+
+                    for (int i = 0; i < lenin; i++) {
+                        list_value.push_back(list[proc + countProcNum + part * i]);
+                    }
+
+                    if (proc == 0) {
+                        list_value = compareResults(list_value);
+                        for (int i = 0; i < lenin; i++) {
+                            list[countProcNum + part * i] = list_value[i];
+                        }
+                    } else {
+                        MPI_Send(&list_value[0], lenin, MPI_INT, proc, tmp, MPI_COMM_WORLD);
+                    }
+                } else {
+                    if (procRank == proc) {
+                        MPI_Recv(&list_value[0], lenin, MPI_INT, 0, tmp, MPI_COMM_WORLD, &status);
+                        list_value = compareResults(list_value);
+                        MPI_Send(&list_value[0], lenin, MPI_INT, 0, proc + tmp, MPI_COMM_WORLD);
+                    }
+                }
+            }
+
+            countProcNum = countProcNum + procNum;
+            tmp++;
+        } while (countProcNum < part);
+        if (part < procNum) {
+            count = part;
+        } else {
+            count = procNum;
+        }
+
+        countProcNum = 0;
+        tmp = 0;
+
+        if (procRank == 0) {
+            do {
+                if (countProcNum + count_of_processes == part)
+                    count = count_of_processes;
+                for (int proc = 1; proc < count; proc++) {
+                    MPI_Recv(&list_value[0], lenin, MPI_INT, proc, proc + tmp, MPI_COMM_WORLD, &status);
+                    for (int i = 0; i < lenin; i++) {
+                        list[proc + part * i + countProcNum] = list_value[i];
+                    }
+                }
+                countProcNum = countProcNum + procNum;
+                tmp++;
+            } while (countProcNum < part);
+        }
+        if (lenin == len) {
+            part = 0;
+        }
+    }
+    return list;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+// Copyright 2020 Emelkhovsky Ekaterina
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <algorithm>
+#include <vector>
+#include "./shell_sort.h"
+
+TEST(shell_sort, Test_1) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> list = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<int> result_list = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<int> sortArray = shell_sort(list);
+    if (rank == 0) {
+        ASSERT_EQ(sortArray, result_list);
+    }
+}
+
+TEST(shell_sort, Test_2) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> list = {5, 6, 4, 3, 8, 2, 1, 10, 7, 9};
+    std::vector<int> result_list = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<int> sortArray = shell_sort(list);
+    if (rank == 0) {
+        ASSERT_EQ(sortArray, result_list);
+    }
+}
+
+TEST(shell_sort, Test_3) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> list = {-1, -2, -3, -4, -5};
+    std::vector<int> result_list = {-5, -4, -3, -2, -1};
+    std::vector<int> sortArray = shell_sort(list);
+    if (rank == 0) {
+        ASSERT_EQ(sortArray, result_list);
+    }
+}
+
+TEST(shell_sort, Test_4) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> list = {1, -10, 0, 123};
+    std::vector<int> result_list = {-10, 0, 1, 123};
+    std::vector<int> sortArray = shell_sort(list);
+    if (rank == 0) {
+        ASSERT_EQ(sortArray, result_list);
+    }
+}
+
+TEST(shell_sort, Test_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> list = {831};
+    std::vector<int> result_list = {831};
+    std::vector<int> sortArray = shell_sort(list);
+    if (rank == 0) {
+        ASSERT_EQ(sortArray, result_list);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+
+\end{lstlisting}
+    \end{document}
