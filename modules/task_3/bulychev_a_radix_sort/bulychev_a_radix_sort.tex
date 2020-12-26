@@ -1,0 +1,532 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+    basicstyle=\footnotesize,
+    keywordstyle=\color{blue}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+    commentstyle=\color{green}\ttfamily,
+    morecomment=[l][\color{magenta}]{\#},
+    tabsize=4,
+    breaklines=true,
+    breakatwhitespace=true,
+    title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поразрядная сортировка для целых чисел с простым слиянием»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381808-2 \\ Булычев А. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Поразрядная сортировка исходно был предназначен для сортировки целых чисел, записанных цифрами. Но так как в памяти компьютеров любая информация записывается целыми числами, алгоритм пригоден для сортировки любых объектов, запись которых можно поделить на «разряды», содержащие сравнимые значения. Например, так сортировать можно не только числа, записанные в виде набора цифр, но и строки, являющиеся набором символов, и вообще произвольные значения в памяти, представленные в виде набора байт.
+\par
+Сравнение производится поразрядно: сначала сравниваются значения одного крайнего разряда, и элементы группируются по результатам этого сравнения, затем сравниваются значения следующего разряда, соседнего, и элементы либо упорядочиваются по результатам сравнения значений этого разряда внутри образованных на предыдущем проходе групп, либо переупорядочиваются в целом, но сохраняя относительный порядок, достигнутый при предыдущей сортировке. Затем аналогично делается для следующего разряда, и так до конца.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы нужно реализовать поразрядную сортировку для целых чисел с простым слиянием.
+\par
+Требуется выполнить следующее:
+\par
+1.	Последовательный алгоритм сортировки(пузырьковая сортировка).
+\par
+2.	Параллельный алгоритм сортировки.
+\par
+3.	Провести вычислительные эксперименты.
+\par
+4.	Сравнить время работы параллельной и последовательной реализаций.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+Предположим, что элементы линейного списка L есть k-разрядные десятичные числа, разрядность максимального числа известна заранее. Обозначим d(j,n) - j-ю справа цифра числа n, которую можно выразить как:
+\par
+d(j,n) = [ n / 10j-1 ] % 10
+\par
+Пусть L0, L1,..., L9 - вспомогательные списки (карманы), вначале пустые. Поразрядная сортировка состоит из двух процессов, называемых распределение и сборка и выполняемых для j=1,2,...,k..
+\par 
+Фаза распределения разносит элементы L по карманам: элементы li списка L последовательно добавляются в списки Lm, где m = d(j, li). Таким образом получаем десять списков, в каждом из которых j-тые разряды чисел одинаковы и равны m.
+\par 
+Фаза сборки состоит в объединении списков L0, L1,..., L9 в общий список L = L0 => L1 => L2 => ... => L
+\par 
+После сортировки мы сливаем  2 вектора разных процессов в один и получаем отсортированный вектор 
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+В начале все процессы коммуникатора MPI COMM WORLD вычисляют свою часть вектора (начальную позицию и длину).  
+\par
+Деление вектора происходит следующим образом: делим количество всех элементов вектора на количество процессов, остатки от деления распределяем между процессами.
+\par
+После деления вектора каждый процесс (кроме нулевого) отправляет нулевому свои размеры и свой локальный кусочек вектора. Это осуществляется с помощью MPI Send и MPI Resv. Нулевой процесс собирает все данные в один вектор для дальнейшего удобства вставки вектор.
+\par
+Далее все процессы получают на вход вектор целиком. Это осуществляется с помощью MPI Bcast. Каждый процесс сортирует свои кусочки и отправляет их нулевому процессу (MPI Send и MPI Resv). В конце нулевой процесс все полученные результаты складывает в нужные позиции результирующего вектора.
+\par
+В итоге результирующий вектор будет расположен в нулевом процессе.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В программе реализованы методы:
+\begin{itemize}
+\item[]•	std::vector<int> getRandomVector(int size) – генерирование рандомного вектора размерности size
+\end{itemize}
+\begin{itemize}
+\item[]•	int pow10(int power) – возведение числа 10 в степень power
+\end{itemize}
+\begin{itemize}
+\item[]•	int pow2(int pow) – возведение числа 2 в степень power
+\end{itemize}
+\begin{itemize}
+\item[]•	std::vector<int> bubble sort Vector(std::vector<int> vec) – сортировка пузырьком
+\end{itemize}
+\begin{itemize}
+\item[]•	bool vector is sort(std::vector<int> vec) – проверка на отсортированность вектора
+\end{itemize}
+\begin{itemize}
+\item[]•	int get max power(std::vector<int> vec) –  кол-во разрядов самого большого числа в векторе
+\end{itemize}
+\begin{itemize}
+\item[]•	std::vector<int> RadixSort(std::vector<int> vec, int size) – поразрядная сортировка
+\end{itemize}
+\begin{itemize}
+\item[]•	std::vector<int> Merge(std::vector<int> vec1, std::vector<int> vec2) – слияние двух векторов
+\end{itemize}
+\begin{itemize}
+\item[]•	std::vector<int> ParallSort(std::vector<int> vec) – параллельный метод поразрядной сортировки для целых чисел с простым слиянием
+\end{itemize}
+\newpage
+%Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе реализован набор тестов с использованием библиотеки для модульного тестирования Google C++ Testing Framework. Тесты проверяют корректную работу последовательного и параллельного алгоритмов
+\newpage
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Характеристики ПК:
+\begin{itemize}
+    \item Процессор: Intel® Core™ i7-8750H CPU @ 2.20GHz 2.20 GHz
+\end{itemize}
+\begin{itemize}
+    \item Оперативная память: 16,00 ГБ
+\end{itemize}
+\begin{itemize}
+    \item Операционная система: Windows 10
+\end{itemize}
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Количество процессов & Послед. время & Парал. время\\
+4  & 1,74967 & 0,03714\\
+7 & 1,80691 & 0,04013\\
+11  & 1,77067 & 0,03504\\
+\end{tabular}
+\end{table}
+\par
+В рамках эксперимента было вычислено время работы последовательного и параллельного алгоритмов сортировки. Размер исходного вектора - 10000.
+\par
+В ходе эксперимента было доказано, что алгоритм реализован эффективно.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе работы были реализованы последовательный и параллельный алгоритмы сортировки. Из результатов вычислительных экспериментов видим, что параллельный алгоритм эффективнее последовательного, так как последовательный алгоритм обрабатывает весь вектор целиком.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{parallel} [Электронный ресурс] //http://algolist.ru/sort/radix sort.php
+\bibitem{parallel} [Электронный ресурс] //http://www.hpcc.unn.ru/mskurs/RUS/DOC/ppr04.pdf
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+radix_sort.h:
+
+// Copyright 2020 Bulychev Andrey
+#ifndef MODULES_TASK_3_BULYCHEV_A_RADIX_SORT_RADIX_SORT_H_
+#define MODULES_TASK_3_BULYCHEV_A_RADIX_SORT_RADIX_SORT_H_
+
+#include <mpi.h>
+#include <string>
+#include <vector>
+
+std::vector<int> getRandomVector(int size);
+int pow10(int power);
+std::vector<int> bubble_sort_Vector(std::vector<int> vec);
+int pow2(int pow);
+bool vector_is_sort(std::vector<int> vec);
+int get_max_power(std::vector<int> vec);
+std::vector<int> RadixSort(std::vector<int> vec, int size);
+std::vector<int> Merge(std::vector<int> vec1, std::vector<int> vec2);
+std::vector<int> ParallSort(std::vector<int> vec);
+
+#endif  // MODULES_TASK_3_BULYCHEV_A_RADIX_SORT_RADIX_SORT_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+radix_sort.cpp:
+
+// Copyright 2020 Bulychev Andrey
+#include "../../../modules/task_3/bulychev_a_radix_sort/radix_sort.h"
+
+#include <math.h>
+#include <mpi.h>
+
+#include <algorithm>
+#include <ctime>
+#include <iostream>
+#include <random>
+#include <string>
+#include <vector>
+
+std::vector<int> getRandomVector(int size) {
+  std::vector<int> vec(size);
+  std::mt19937 gen;
+  gen.seed(static_cast<unsigned int>(time(0)));
+  for (int i = 0; i < size; i++) vec[i] = gen() % 10000;
+  return vec;
+}
+
+int pow10(int power) {
+  int tmp = 1;
+  for (int i = 0; i < power; i++) {
+    tmp = tmp * 10;
+  }
+  return tmp;
+}
+
+std::vector<int> bubble_sort_Vector(std::vector<int> vec) {
+  int j = 0;
+  int tmp = 0;
+  int lengh = vec.size();
+  for (int i = 0; i < lengh; i++) {
+    j = i;
+    for (int k = i; k < lengh; k++) {
+      if (vec[j] > vec[k]) {
+        j = k;
+      }
+    }
+    tmp = vec[i];
+    vec[i] = vec[j];
+    vec[j] = tmp;
+  }
+  return vec;
+}
+
+int pow2(int pow) {
+  int res = 1;
+  for (int i = 0; i < pow; ++i) res = res * 2;
+
+  return res;
+}
+
+bool vector_is_sort(std::vector<int> vec) {
+  int size = vec.size();
+  for (int i = 0; i < size - 1; i++) {
+    if (vec[i] > vec[i + 1]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int get_max_power(std::vector<int> vec) {
+  int max_power = 0;
+  int tmp = vec[0];
+  int size = vec.size();
+  for (int i = 0; i < size; i++) {
+    if (tmp < vec[i]) {
+      tmp = vec[i];
+    }
+  }
+  if (tmp == 0) {
+    return 1;
+  }
+  while (tmp != 0) {
+    tmp = tmp / 10;
+    max_power++;
+  }
+  return max_power;
+}
+
+std::vector<int> RadixSort(std::vector<int> vec, int size) {
+  std::vector<std::vector<int>> main_vec(10);
+  std::vector<int> my_vec = vec;
+  int tmp = 0;
+  int power = 1;
+  int max_power;
+  if (vector_is_sort(vec)) {
+    return vec;
+  }
+  max_power = get_max_power(vec);
+  while (power <= max_power) {
+    for (int i = 0; i < size; i++) {
+      tmp = (my_vec[i] % static_cast<unsigned int>(pow10(power))) /
+            static_cast<unsigned int>(pow(10, power - 1));
+      main_vec[tmp].push_back(my_vec[i]);
+    }
+    my_vec.clear();
+    for (int i = 0; i < 10; i++) {
+      if (!main_vec[i].empty()) {
+        int size = main_vec[i].size();
+        for (int j = 0; j < size; j++) {
+          my_vec.push_back(main_vec[i][j]);
+        }
+        main_vec[i].clear();
+      }
+    }
+    power++;
+  }
+  return my_vec;
+}
+
+std::vector<int> Merge(std::vector<int> vec1, std::vector<int> vec2) {
+  int size1 = vec1.size();
+  int size2 = vec2.size();
+  std::vector<int> tmp(size1 + size2);
+  int i = 0, j = 0;
+  for (int k = 0; k < size1 + size2; k++) {
+    if (i > size1 - 1) {
+      int a = vec2[j];
+      tmp[k] = a;
+      j++;
+    } else {
+      if (j > size2 - 1) {
+        int a = vec1[i];
+        tmp[k] = a;
+        i++;
+      } else {
+        if (vec1[i] < vec2[j]) {
+          int a = vec1[i];
+          tmp[k] = a;
+          i++;
+        } else {
+          int b = vec2[j];
+          tmp[k] = b;
+          j++;
+        }
+      }
+    }
+  }
+  return tmp;
+}
+
+std::vector<int> ParallSort(std::vector<int> src) {
+  int mpi_rank, mpi_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  int length, rem;
+  if (mpi_rank == 0) {
+    length = src.size() / mpi_size;
+    rem = src.size() % mpi_size;
+  }
+  MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  std::vector<int> local_vec(length);
+  MPI_Scatter(src.data(), length, MPI_INT, local_vec.data(), length, MPI_INT, 0,
+              MPI_COMM_WORLD);
+  if (mpi_rank == 0 && rem != 0) {
+    local_vec.insert(local_vec.end(), src.end() - rem, src.end());
+  }
+  local_vec = RadixSort(local_vec, local_vec.size());
+  int i = mpi_size;
+  int num_op = 1;
+  int num_op_length = length;
+  int part;
+  int loc_size = length;
+  if (mpi_rank == 0) {
+    loc_size = loc_size + rem;
+  }
+  while (i > 1) {
+    if (i % 2 == 1) {
+      if (mpi_rank == 0) {
+        MPI_Status status1;
+        std::vector<int> tmp_vec(num_op_length);
+        part = pow2(num_op - 1) * (i - 1);
+        MPI_Recv(tmp_vec.data(), num_op_length, MPI_INT, part, 1,
+                 MPI_COMM_WORLD, &status1);
+        local_vec = Merge(local_vec, tmp_vec);
+        loc_size += num_op_length;
+      }
+      if (mpi_rank == pow2(num_op - 1) * (i - 1)) {
+        MPI_Send(local_vec.data(), num_op_length, MPI_INT, 0, 1,
+                 MPI_COMM_WORLD);
+        return local_vec;
+      }
+    }
+    if (mpi_rank % pow2(num_op) == 0) {
+      part = mpi_rank + pow2(num_op - 1);
+      std::vector<int> tmp_vec(num_op_length);
+      MPI_Status status3;
+      MPI_Recv(tmp_vec.data(), num_op_length, MPI_INT, part, 3, MPI_COMM_WORLD,
+               &status3);
+      local_vec = Merge(local_vec, tmp_vec);
+      loc_size += num_op_length;
+    }
+    if (mpi_rank % pow2(num_op) != 0) {
+      part = mpi_rank - pow2(num_op - 1);
+      MPI_Send(local_vec.data(), num_op_length, MPI_INT, part, 3,
+               MPI_COMM_WORLD);
+      return local_vec;
+    }
+    num_op++;
+    i = i / 2;
+    num_op_length = num_op_length * 2;
+  }
+  return local_vec;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+main.cpp:
+
+// Copyright 2020 Bulychev Andrey
+#include <gtest/gtest.h>
+
+#include <gtest-mpi-listener.hpp>
+#include <vector>
+
+#include "./radix_sort.h"
+
+TEST(Parallel_Operations_MPI, Test_incorrect_size) {
+  int rank;
+  int size = -2;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<int> vec;
+  if (rank == 0) {
+    ASSERT_ANY_THROW(getRandomVector(size));
+  }
+}
+
+TEST(Parallel_Operation_MPI, Test_work_radix_sort) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<int> vec = getRandomVector(15);
+  std::vector<int> result(vec.size());
+  if (rank == 0) {
+    int size = vec.size();
+    vec = RadixSort(vec, vec.size());
+    result = bubble_sort_Vector(vec);
+    for (int i = 0; i < size; ++i) EXPECT_EQ(vec[i], result[i]);
+  }
+}
+
+TEST(Parallel_Operation_MPI, Test_work_merge) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    std::vector<int> vec1{3, 4, 10, 17};
+    std::vector<int> vec2{0, 6, 7, 46};
+    std::vector<int> sum{0, 3, 4, 6, 7, 10, 17, 46};
+    std::vector<int> result = Merge(vec1, vec2);
+    for (int i = 0; i < 8; ++i) EXPECT_EQ(result[i], sum[i]);
+  }
+}
+
+TEST(Parallel_Operations_MPI, Test_const_ParallelRadixSort) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<int> vec{47, 39, 118, 5,   24, 7,  27, 22,  35, 48,
+                       70, 56, 107, 461, 19, 32, 95, 206, 67, 11};
+  std::vector<int> result = ParallSort(vec);
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (rank == 0) {
+    std::vector<int> simple_sort = bubble_sort_Vector(vec);
+    for (int i = 0; i < 10; ++i) EXPECT_EQ(result[i], simple_sort[i]);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+    \end{document}
