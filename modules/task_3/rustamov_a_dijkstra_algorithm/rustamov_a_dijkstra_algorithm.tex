@@ -1,0 +1,843 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поиск кратчайших путей из одной вершины (алгоритм Дейкстры).»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-1 \\ Рустаов А.З.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Задача о поиске кратчайших путей является одной из важнейших классических задач теории графов.
+\par Одним из возможных алгоритмов решения задачи поиска кратчайшего пути на графе является алгоритм Дейкстры.
+\par Алгоритм Дейкстры имеет сложность порядка  $O(n^2)$, следовательно, его сложность быстро растёт с увеличением числа вершин. Поэтому возникает необходимость распараллеливания вычислений. 
+\par В данной лабораторной работе будет реализован алгоритм Дейкстры.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо реализовать последовательную и параллельную реализации алгоритма Дейкстры, проверить корректность работы алгоритмов, провести эксперименты для оценки эффективности параллелизации. По полученным результатам сделать выводы.
+\par Для реализации параллельной версии необходимо использовать библиотеку межпроцессорного взаимодействия MPI. Для проверки корректности работы алгоритмов используется Google Testing Framework.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+Даны граф {\itshape A}, представленный в виде матрицы смежности и вершина-источник, для которой и будет строиться дерево кратчайших путей.
+\par Первым шагом помечается вершина-источник, и расстояние до ней записывается равным нулю. Далее, ищется наименьшее ребро, соединяющее помеченную и непомеченную вершину. Если такое ребро есть, то такое ребро добавляется к дереву кратчайших путей, непомеченная вершина помечается, а расстояние до этой вершины складывается из веса добавленного ребра и расстояния до вершины, с которой соединяет это ребро. Если ребра не нашлось, то, либо в графе не осталось непомеченных вершин, либо не существует ребер, соединяющих помеченную вершину с непомеченной. В любом случае, алгоритм завершает свою работу.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Для распараллеливания алгоритма Дейкстры необходимо равномерно распределить вершины на процессы. При использовании матрицы смежности, процессам передаются строки матрицы. Затем процессы, содержащий помеченные вершины, ищут ребро минимального веса, соединяющее помеченную вершину с непомеченной. Затем, веса этих ребер собираются в корневом процессе, который находит среди них минимум и рассылает всем процессам, в каком процессе этот минимум был найден. Далее, подходящий процесс передаёт, какие вершины соединяло это ребро. Это ребро добавляется в дерево кратчайших путей, помечается добавленная вершина и вычисляется расстояние до этой вершины. Затем, процесс повторяется.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В программе используются функции, представленные ниже:
+\par Последовательный алгоритм Дейкстры реализован в следующей функции:
+\begin{lstlisting}
+Matrix SequentialDijkstraAlgorithm(Matrix graph, int verts, int source_vertex);
+\end{lstlisting}
+\par Входными данными функции является матрица смежности графа, количество вершин в графе и вершина-источник, для которой и будет построено дерево кратчайших путей. Выходными данными является построенное дерево кратчайших путей.
+\par Параллельный алгоритм Дейкстры реализован в следующей функции:
+\begin{lstlisting}
+Matrix ParallelDijkstraAlgorithm(Matrix graph, int verts, int source_vertex);
+\end{lstlisting}
+\par Входными параметрами функции является матрица смежности графа, количество вершин в графе и вершина-источник, для которой и будет построено дерево кратчайших путей. Выходными данными является построенное дерево кратчайших путей.
+\par При тестировании используются следующие функции:
+\begin{itemize}
+    \item Функция для генерации матрицы смежности
+    \begin{lstlisting}
+    Matrix RandomGraph(int verts, int edges, bool oriented)
+    \end{lstlisting}
+    \par Входными параметрами функции является чило вершин в графе, число ребер в графе и значение типа \verb|bool|, определяющее ориентированный ли граф или неориентированный. Выходыми данными является сгенерированная матрица смежности.
+    \item Функция для генерации матрицы смежности разреженного графа
+    \begin{lstlisting}
+    Matrix RandomGraphSparce(int verts, int edges, bool oriented)
+    \end{lstlisting}
+    \par Входными параметрами функции является чило вершин в графе, число ребер в графе и значение типа \verb|bool|, определяющее ориентированный ли граф или неориентированный. Вызывается из функции RandomGraph(), если число ребер меньше, чем половина максимального числа ребер для данного графа. Выходыми данными является сгенерированная матрица смежности.
+    \item Функция для генерации матрицы смежности плотного графа
+    \begin{lstlisting}
+    Matrix RandomGraphDence(int verts, int edges, bool oriented)
+    \end{lstlisting}
+    \par Входными параметрами функции является чило вершин в графе, число ребер в графе и значение типа \verb|bool|, определяющее ориентированный ли граф или неориентированный. Вызывается из функции RandomGraph(), если число ребер больше, чем половина максимального числа ребер для данного графа. Выходыми данными является сгенерированная матрица смежности.
+\end{itemize}
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с Google Testing Framework.
+\par Набор представляет из себя тесты, которые проверяют корректность корректность вычислений (сравнивается дерево кратчайших путей, полученное при параллельной реализации алгоритма, с дерево кратчайших путей, полученным с помощью последовательного алгоритма), а также эффективность (вычисление занимаемого последовательного и параллельного алгоритмов времени и сравнение полученных данных).
+\par Успешное прохождение всех тестов подтверждает корректность работы написанной программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты для оценки эффективности проводились на ПК со следующими характеристиками:
+
+\begin{itemize}
+\item Процессор: AMD A10-9620P RADEON R5, 10 COMPUTE CORES 4C+6G, 2.50 GHz
+\item Оперативная память: 8 ГБ;
+\item ОС: Microsoft Windows 10 Pro Build 19042.685.
+\end{itemize}
+
+\par В рамках эксперимента было вычислено время работы параллельного и последовательно алгоритмов Дейкстры поиска кратчайших путей из одной вершины. Размер матриц смежности \verb|500| , \verb|1000| и \verb|2000|.
+\par Результаты экспериментов представлены ниже.
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для неориентированных графов с 500 вершинами и 70000 ребрами}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+2        & 2.526570            & 1.354200       & 1.865729       \\
+4        & 2.476640            & 0.835555       & 2.964065       \\
+6        & 2.727910            & 3.045080       & 0.895841
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для ориентированных графов с 500 вершинами и 220000 ребрами}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение            \\
+2        & 2.526570            & 1.397360        & 1.808102     \\
+4        & 2.64650            & 0.871001        & 3.038458      \\
+6        & 2.72791            & 3.208920        & 0.850102
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для ориентированных графов с 1000 вершинами и 998000 ребрами}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение            \\
+2        & 20.7845            & 11.3295        & 1.834547       \\
+4        & 22.5343            & 7.72283        & 2.917881       \\
+6        & 21.7523            & 14.485        & 1.501712
+\end{tabular}
+\end{table}
+
+\par По данным, полученным в результате экспериментов, можно сделать вывод о том, что параллельный случай работает действительно быстрее, чем последовательный.
+\par Если увеличить количество процессов до 6, то ускорение наблюдается только для графов с большим количеством вершин. Так происходит из-за увеличения накладных расходов: происходит больше пересылок данных между процессами, увеличивается количество операций сравнения между локальными минимумами.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы были разработаны последовательная реализация алгоритма Дейкстры поиска кратчайших путей из одной вершины.
+\par Результаты проведенных экспериментов показывают, что параллельная реализация работает быстрее, чем последовательная.
+\par Для подтверждения корректности работы программы написаны тесты с использованием Google Testing Framework.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{wikishell} Википедия: Алгоритм Дейкстры [Электронный ресурс] // URL: \url {https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm} (дата обращения: 26.12.2020)
+\bibitem{wikishell} Википедия: Задача о кратчайшем пути [Электронный ресурс] // URL: \url {https://en.wikipedia.org/wiki/Shortest_path_problem} (дата обращения: 26.12.2020)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В этом разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// dijkstra_algorithm.h
+// Copyright 2020 Rustamov Azer
+#ifndef MODULES_TASK_3_RUSTAMOV_A_DIJKSTRA_ALGORITHM_DIJKSTRA_ALGORITHM_H_
+#define MODULES_TASK_3_RUSTAMOV_A_DIJKSTRA_ALGORITHM_DIJKSTRA_ALGORITHM_H_
+#include <vector>
+
+using Matrix = std::vector<double>;
+
+Matrix RandomGraph(int verts, int edges, bool oriented = false);
+Matrix RandomGraphSparce(int verts, int edges, bool oriented = false);
+Matrix RandomGraphDence(int verts, int edges, bool oriented = false);
+
+Matrix SequentialDijkstraAlgorithm(Matrix graph, int verts, int source_vertex);
+Matrix ParallelDijkstraAlgorithm(Matrix graph, int verts, int source_vertex);
+
+#endif  // MODULES_TASK_3_RUSTAMOV_A_DIJKSTRA_ALGORITHM_DIJKSTRA_ALGORITHM_H_
+\end{lstlisting}
+\begin{lstlisting}
+// dijkstra_algorithm.cpp
+// Copyright 2020 Rustamov Azer
+#include <mpi.h>
+#include <iostream>
+#include <vector>
+#include <random>
+#include <limits>
+#include "../../../modules/task_3/rustamov_a_dijkstra_algorithm/dijkstra_algorithm.h"
+
+Matrix RandomGraph(int verts, int edges, bool oriented) {
+    int max_edges = verts * (verts - 1) / 2;
+    if (oriented) {
+        max_edges *= 2;
+    }
+    if ((verts == 0) || (edges > max_edges)) {
+        throw "Incorrect graph";
+    }
+    if (edges > max_edges / 2) {
+        return RandomGraphDence(verts, edges, oriented);
+    } else {
+        return RandomGraphSparce(verts, edges, oriented);
+    }
+}
+
+Matrix RandomGraphSparce(int verts, int edges, bool oriented) {
+    int max_edges = verts * (verts - 1) / 2;
+    if (oriented) {
+        max_edges *= 2;
+    }
+    std::random_device rd;
+    std::mt19937 mersenne(rd());
+    std::uniform_real_distribution<> weight(0, 30);
+    std::uniform_int_distribution<> pos(0, verts * verts - 1);
+    double inf = std::numeric_limits<double>::infinity();
+    Matrix matrix(verts * verts);
+    std::fill(matrix.begin(), matrix.end(), inf);
+    double edge_weight;
+    int vert1, vert2, position;
+    for (int edge = 0; edge < edges; edge++) {
+        position = static_cast<int>(pos(mersenne));
+        vert1 = position / verts;
+        vert2 = position % verts;
+        if ((vert1 == vert2) || (matrix[vert1 * verts + vert2] != inf)) {
+            edge--;
+        } else {
+            edge_weight = static_cast<double>(weight(mersenne));
+            matrix[vert1 * verts + vert2] = edge_weight;
+            if (!oriented) {
+                matrix[vert2 * verts + vert1] = edge_weight;
+            }
+        }
+    }
+    return matrix;
+}
+
+Matrix RandomGraphDence(int verts, int edges, bool oriented) {
+    int max_edges = verts * (verts - 1) / 2;
+    if (oriented) {
+        max_edges *= 2;
+    }
+    std::random_device rd;
+    std::mt19937 mersenne(rd());
+    std::uniform_real_distribution<> weight(0, 30);
+    std::uniform_int_distribution<> pos(0, verts * verts - 1);
+    double inf = std::numeric_limits<double>::infinity();
+    Matrix matrix(verts * verts);
+    double edge_weight;
+    for (int i = 0; i < verts; i++) {
+        for (int j = 0; j < verts; j++) {
+            if (i == j) {
+                matrix[i * verts + j] = inf;
+            } else {
+                edge_weight = static_cast<double>(weight(mersenne));
+                matrix[i * verts + j] = edge_weight;
+            }
+        }
+    }
+    int vert1, vert2, position;
+    for (int cut = 0; cut < max_edges - edges; cut++) {
+        position = static_cast<int>(pos(mersenne));
+        vert1 = position / verts;
+        vert2 = position % verts;
+        if (matrix[vert1 * verts + vert2] == inf) {
+            cut--;
+        } else {
+            matrix[vert1 * verts + vert2] = inf;
+            if (!oriented) {
+                matrix[vert2 * verts + vert1] = inf;
+            }
+        }
+    }
+    return matrix;
+}
+
+Matrix SequentialDijkstraAlgorithm(Matrix graph, int verts, int source_vertex) {
+    if (graph.size() != verts * verts) {
+        throw "Incorrect graph";
+    }
+    if (source_vertex >= verts) {
+        throw "Incorrecr source vertex";
+    }
+    Matrix shortest_path_tree(verts * verts);
+    double inf = std::numeric_limits<double>::infinity();
+    std::fill(shortest_path_tree.begin(), shortest_path_tree.end(), inf);
+    Matrix distance_to_verex(verts);
+    std::fill(distance_to_verex.begin(), distance_to_verex.end(), inf);
+    distance_to_verex[source_vertex] = 0.0;
+    int closest_vert_in, closest_vert_out;
+    double shortest_path;
+    while (true) {
+        shortest_path = inf;
+        for (int vert_in = 0; vert_in < verts; vert_in++) {
+            if (distance_to_verex[vert_in] != inf) {
+                for (int vert_out = 0; vert_out < verts; vert_out++) {
+                    if ((distance_to_verex[vert_out] == inf) &&
+                        (graph[vert_in * verts + vert_out] < shortest_path)) {
+                        closest_vert_in = vert_in;
+                        closest_vert_out = vert_out;
+                        shortest_path = graph[vert_in * verts + vert_out];
+                    }
+                }
+            }
+        }
+        if (shortest_path == inf) {
+            break;
+        }
+        shortest_path_tree[closest_vert_in * verts + closest_vert_out] = shortest_path;
+        distance_to_verex[closest_vert_out] = distance_to_verex[closest_vert_in] +
+           shortest_path;
+    }
+    return shortest_path_tree;
+}
+
+
+Matrix ParallelDijkstraAlgorithm(Matrix graph, int verts, int source_vertex) {
+    if (graph.size() != verts * verts)
+        throw "Incorrect graph";
+    if (source_vertex >= verts)
+        throw "Incorrecr source vertex";
+    double inf = std::numeric_limits<double>::infinity();
+    int procNum, procRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    if (procNum == 1)
+        return SequentialDijkstraAlgorithm(graph, verts, source_vertex);
+    Matrix shortest_path_tree(verts * verts);
+    std::fill(shortest_path_tree.begin(), shortest_path_tree.end(), inf);
+    Matrix distance_to_verex(verts);
+    std::fill(distance_to_verex.begin(), distance_to_verex.end(), inf);
+    distance_to_verex[source_vertex] = 0.0;
+    MPI_Status status;
+    const int delta = verts / procNum;
+    const int remain = verts % procNum;
+    const int remain_for_proc = procRank < remain ? 1 : 0;
+    Matrix local_graph((delta + remain_for_proc) * verts);
+    std::fill(local_graph.begin(), local_graph.end(), inf);
+    if (procRank == 0) {
+        for (int row = 0; row < verts; row++) {
+            if (row % procNum != 0) {
+                MPI_Send(graph.data() + row * verts, verts, MPI_DOUBLE, row % procNum, 0, MPI_COMM_WORLD);
+            } else {
+                for (int vert = 0; vert < verts; vert++) {
+                    local_graph[(row / procNum) * verts + vert] = graph[row * verts + vert];
+                }
+            }
+        }
+    } else {
+        for (int local_vert = 0; local_vert < delta + remain_for_proc; local_vert++)
+            MPI_Recv(local_graph.data() + local_vert * verts, verts, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
+    }
+    double local_shortest_path;
+    Matrix global_shortest_paths(procNum);
+    int local_closest_vert_in, local_closest_vert_out;
+    bool done = false;
+    int result_in, result_out;
+    double result_path;
+    while (true) {
+        result_in = result_out = -1;
+        result_path = inf;
+        local_closest_vert_in = local_closest_vert_out = -1;
+        local_shortest_path = inf;
+        if (procRank == 0) {
+            std::fill(global_shortest_paths.begin(), global_shortest_paths.end(), inf);
+        }
+        for (int vert_in = 0; vert_in < delta + remain_for_proc; vert_in++) {
+            if (distance_to_verex[vert_in * procNum + procRank] != inf) {
+                for (int vert_out = 0; vert_out < verts; vert_out++) {
+                    if ((distance_to_verex[vert_out] == inf) &&
+                    (local_graph[vert_in * verts + vert_out] < local_shortest_path)) {
+                        local_closest_vert_in = vert_in * procNum + procRank;
+                        local_closest_vert_out = vert_out;
+                        local_shortest_path = local_graph[vert_in * verts + vert_out];
+                    }
+                }
+            }
+        }
+        int curr_proc;
+        if (procRank != 0) {
+            MPI_Send(&local_shortest_path, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&done, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+        } else {
+            global_shortest_paths[0] = local_shortest_path;
+            for (int proc = 1; proc < procNum; proc++) {
+                MPI_Recv(global_shortest_paths.data() + proc, 1, MPI_DOUBLE, proc, 0, MPI_COMM_WORLD, &status);
+            }
+            for (int proc = 0; proc < procNum; proc++) {
+                if (result_path > global_shortest_paths[proc]) {
+                    result_path = global_shortest_paths[proc];
+                    curr_proc = proc;
+                }
+            }
+            if (result_path == inf) {
+                done = true;
+            }
+            MPI_Bcast(&done, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+        }
+        if (done) {
+            break;
+        }
+        MPI_Bcast(&curr_proc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if (curr_proc != 0) {
+            if (curr_proc == procRank) {
+                MPI_Send(&local_closest_vert_in, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+                MPI_Send(&local_closest_vert_out, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+            }
+            if (procRank == 0) {
+                MPI_Recv(&result_in, 1, MPI_INT, curr_proc, 0, MPI_COMM_WORLD, &status);
+                MPI_Recv(&result_out, 1, MPI_INT, curr_proc, 0, MPI_COMM_WORLD, &status);
+            }
+        } else {
+            result_in = local_closest_vert_in;
+            result_out = local_closest_vert_out;
+        }
+        if (procRank == 0) {
+            distance_to_verex[result_out] = distance_to_verex[result_in] + result_path;
+            shortest_path_tree[result_in * verts + result_out] = result_path;
+        }
+        MPI_Bcast(distance_to_verex.data(), verts, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
+    return shortest_path_tree;
+}
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+// Copyright 2020 Rustamov Azer
+#include <mpi.h>
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <limits>
+#include "./dijkstra_algorithm.h"
+
+#define EPSILON 0.000001
+
+TEST(Dijkstra_Algorithm, Incorrect_Graph) {
+    int procNum, procRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 2, edges = 10;
+    Matrix graph;
+    if (procRank == 0) {
+        ASSERT_ANY_THROW(RandomGraph(verts, edges));
+    }
+}
+
+TEST(Dijkstra_Algorithm, Correct_Answer_Unoriented_5_Seq) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    Matrix graph = {inf, inf, 7,   3,   9,
+                    inf, inf, 2,   15,  4,
+                    7,   2,   inf, 10,  inf,
+                    3,   15,  10,  inf, inf,
+                    9,   4,   inf, inf, inf };
+    if (procRank == 0) {
+        Matrix spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        Matrix exspt = {inf, inf, 7,   3,   inf,
+                        inf, inf, inf, inf, 4,
+                        inf, 2,   inf, inf, inf,
+                        inf, inf, inf, inf, inf,
+                        inf, inf, inf, inf, inf };
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (exspt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], exspt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, Correct_Answer_Unoriented_5_Par) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    Matrix graph = {inf, inf, 7,   3,   9,
+                    inf, inf, 2,   15,  4,
+                    7,   2,   inf, 10,  inf,
+                    3,   15,  10,  inf, inf,
+                    9,   4,   inf, inf, inf };
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        Matrix exspt = {inf, inf, 7,   3,   inf,
+                        inf, inf, inf, inf, 4,
+                        inf, 2,   inf, inf, inf,
+                        inf, inf, inf, inf, inf,
+                        inf, inf, inf, inf, inf };
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (exspt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], exspt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 5_9_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    int edges = 9;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 5_9_Oriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    int edges = 9;
+    bool is_oriented = true;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+
+TEST(Dijkstra_Algorithm, 5_9_Unoriented_Source_1) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    int edges = 9;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 1);
+    if (procRank == 0) {
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 1);
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 5_9_Oriented_Source_3) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 5;
+    int edges = 9;
+    bool is_oriented = true;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 3);
+    if (procRank == 0) {
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 3);
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 10_30_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 10;
+    int edges = 30;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 100_400_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 100;
+    int edges = 400;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 200_400_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 200;
+    int edges = 400;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 500_500_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 500;
+    int edges = 500;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 500_70000_Unoriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 500;
+    int edges = 70000;
+    bool is_oriented = false;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 500_220000_Oriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 500;
+    int edges = 220000;
+    bool is_oriented = true;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+TEST(Dijkstra_Algorithm, 1000_998000_Oriented_Source_0) {
+    int procRank;
+    double inf = std::numeric_limits<double>::infinity();
+    MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+    int verts = 1000;
+    int edges = 998000;
+    bool is_oriented = true;
+    Matrix graph = RandomGraph(verts, edges, is_oriented);
+    double time_start_par = MPI_Wtime();
+    Matrix spt = ParallelDijkstraAlgorithm(graph, verts, 0);
+    if (procRank == 0) {
+        double time_end_par = MPI_Wtime();
+        std::cout << "PAR: " << time_end_par - time_start_par << std::endl;
+    }
+    if (procRank == 0) {
+        double time_start_seq = MPI_Wtime();
+        Matrix seq_spt = SequentialDijkstraAlgorithm(graph, verts, 0);
+        double time_end_seq = MPI_Wtime();
+        std::cout << "SEQ: " << time_end_seq - time_start_seq << std::endl;
+        for (int pos = 0; pos < verts * verts; pos++) {
+            if ((spt[pos] != inf) || (seq_spt[pos] != inf)) {
+                ASSERT_NEAR(spt[pos], seq_spt[pos], EPSILON);
+            }
+        }
+    }
+}
+
+int main(int argc, char* argv[]) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners &listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
