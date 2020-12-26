@@ -1,0 +1,628 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+    basicstyle=\footnotesize,
+    keywordstyle=\color{blue}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+    commentstyle=\color{green}\ttfamily,
+    morecomment=[l][\color{magenta}]{\#},
+    tabsize=4,
+    breaklines=true,
+    breakatwhitespace=true,
+    title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Многошаговая схема решения двумерных задач глобальной оптимизации.
+Распараллеливание по характеристикам
+»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381808-2 \\ Кох Владислав\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+
+
+Глобальная оптимизация - это раздел прикладной математики и численного анализа, который занимается проблемами поиска глобальных экстремумов функций. В большинстве случаев решается задача минимизации, поскольку максимизация эквивалентна поиску обратного функционала для задачи минимизации. Приведем примеры известных алгоритмов глобальной оптимизации:
+Метод последовательного сканирования
+Метод Кушнера
+Метод Ломаных
+\par
+Базовый информационно-статистический алгоритм глобального поиска (АГП)
+Информационный алгоритм глобального поиска с испытаниями только во внутренних точках (АГПВТ)
+\par
+Для снижения сложности алгоритмов глобальной оптимизации, формирующих неравномерное покрытие области поиска, широко используются различные схемы редукции размерности, которые позволяют свести решение многомерных оптимизационных задач к семейству задач одномерной оптимизации.
+В данной работе рассматривается рекурсивная схема редукции размерности с использованием базового информационно-статистического алгоритма глобального поиска.
+\par
+Целью лабораторной работы является реализация параллельной многошаговой схемы решения двумерных задач глобальной оптимизации с распараллеливанием по характеристикам и сравнение эффективности параллельной и последовательной схемы.
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Необходимо реализовать последовательную и параллельную рекурсивную схему редукции размерности с использованием базового информационно-статистического алгоритма глобального поиска, провести тестирование работоспособности реализованных алгоритмов, а также сравнить время выполнения последовательной и параллельной схемы. Распараллеливание выполнить по максимальным характеристикам. Сделать выводы по полученным результатам.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Для решения двумерной задачи глобальной оптимизации используется базовый алгоритм глобального поиска (АГП) на двух уровнях рекурсии. На первом уровне с помощью АГП определяется в какой точке необходимо провести испытание, точка фиксируется и отправляется на второй уровень, где определяется результат испытания и возвращается полученное значение.
+Рассмотрим общую схему АГП:
+\par
+Пусть проведены k >= 2 испытаний и получена поисковая информация
+для выбора точки xk+1 нового испытания необходимо
+выполнить следующие действия:
+Упорядочить точки xi в порядке возрастания
+\par
+Вычислить величины M и m, где   , где r > 1 является заданным параметром метода
+Для каждого интервала (xi-1, xi), 1 <= i <= k – 1 вычислить характеристику
+Найти интервал с максимальной характеристикой
+\par
+Провести новое испытание в точке xk+1, вычислить значение zk+1 и увеличить номер шага поиска k на единицу,	
+Правило остановки задается в форме
+где для любого > 0 – заданная точность поиска.
+
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+В данной лабораторной работе используется распараллеливание по характеристикам. Пусть количество процессов равно n, процесс с рангом 0 назовем главным, а остальные вспомогательными. В начале работы процесс с рангом 0 делит отрезок [a, b] на необходимое количество интервалов k-1, в зависимости от количества процессов, и параллельно вычисляются значения zi во всех точках i, 1 < i < k, полученного множества. После того, как получены и отсортированы все необходимые элементы множества, начинается k+1 итерация: Процесс с рангом 0 вычисляет характеристики R, все значения характеристик сортируются в порядке убывания и на основании первых n-1 значений R вычисляются точки, в которых вспомогательные процессы должны провести испытания. Если после получения главным процессом результатов всех испытаний, правило остановки != 0, начинается следующая итерация, иначе вспомогательным процессам рассылается сигнал о завершении работы и возвращается финальный результат главным процессом.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В программе реализованы методы:
+\begin{itemize}
+\item В программе реализованы три класса для поддержки элементов множества с перегруженной операцией сравнения, структура и вспомогательная функция для поддержки возвращаемого результата
+
+\end{itemize}
+\begin{lstlisting}
+	resultTwoVar solveOneVar(const double& _a, const double& _b, const double& Xf, double(*func)(double x, double y), const double& _eps = 0.1, const int& _N_max = 100, const double& _r_par = 2.0)
+\end{lstlisting}
+\begin{itemize}
+\item параллельное решение двумерной задачи глобальной оптимизации
+
+\end{itemize}
+\begin{lstlisting}
+resultTwoVar solveTwoVar(const double& _a1, const double& _b1, const double& _a2, const double& _b2, double(*func)(double x, double y), const double& _eps = 0.1, const int& _Nmax = 100, const double& _epsOneVar = 0.1, const int& _NmaxOneVar = 100, const double& _r_par = 2.0)
+\end{lstlisting}
+\begin{itemize}
+\item последовательное решение двумерной задачи глобальной оптимизации
+\end{itemize}
+\begin{lstlisting}
+resultTwoVar solveTwoVarSequential(const double& _a1, const double& _b1, const double& _a2, const double& _b2, double(*func)(double x, double y), const double& _eps
+= 0.1, const int& _Nmax = 100, const double& _epsOneVar = 0.1, const int&
+_NmaxOneVar = 100, const double& _r_par = 2.0) 
+
+\end{lstlisting}
+
+\newpage
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты проводились на 4-х ядерном компьютере с операционной системой – Windows 10. Результаты экспериментов приведены в таблице:
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Количество процессов & Паралл. время & Послед. время \\
+2  & 1.399  & 3.203\\
+3 & 1.951 & 2.939\\
+4  & 2.723 & 3.36\\
+\end{tabular}
+\end{table}
+\par
+По результатам экспериментов видно, что параллельный алгоритм работает быстрее последовательного. Ускорение возрастает при увеличении числа процессов. При увеличении размера интервала, время работы возрастает, но ускорение при различном количестве итераций почти не меняется. На двух процессах ускорения почти нет, потому что поиском глобального минимума занимается один вспомогательный процесс, а главный процесс ищет минимум единственный раз при инициализации множества.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы была реализована многошаговая схема решения двумерных задач глобальной оптимизации, распараллеленная по характеристикам с помощью средств MPI. Результаты экспериментов показали, что параллельная версия работает быстрее последовательного. Для подтверждения корректности работы программы был разработан набор тестов с использованием библиотеки модульного тестирования Google C++ Testing Framework.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{parallel} Parallel: •	
+Стронгин Р. Г., Гергель В. П., Гришагин В. А., Баркалов К. А. Параллельные вычисления в задачах глобальной оптимизации: Монография / Предисл.: В. А. Садовничий. – М.: Издательство Московского университета, 2013. – 280 с., илл.
+– (Серия «Суперкомпьютерное образование») ISBN 978-5-211-06479-9
+
+
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// Copyright 2020 Kokh Vladislav
+#include <mpi.h>
+#include <stdexcept>
+#include <set>
+#include <random>
+#include "../../../modules/task_3/kokh_v_global_optimization/global_optimization.h"
+
+double func1(double x, double y) {
+    return std::pow(y - 1, 2) + std::pow(x, 2);
+}
+
+double func2(double x, double y) {
+    return std::pow(std::pow(std::pow(x, 2) + std::pow(y, 2), 2), 1.0 / 3) + 4;
+}
+
+double func3(double x, double y) {
+    return std::pow(x, 3) + 8*std::pow(y, 3) - 6*x*y + 5;
+}
+double func4(double x, double y) {
+    return y*sqrt(x) - 2*std::pow(y, 2) - x + 14*y;
+}
+double func5(double x, double y) {
+    return x + 4*y - 6 - 2*log(x*y) - 3*log(y);
+}
+
+
+xyzStruct twoPar(const double& a_first, const double& b_first, const double& a_second,
+const double& b_second, double(*func)(double x, double y), const double& eps_in_func,
+const int& n_max_value, const double& eps_one_value,
+const int& n_max_value_1, const double& r_param) {
+    if (a_first > b_first)
+        throw "a_first > b_first";
+
+    if (a_second > b_second)
+        throw "a_second > b_second";
+
+    int rank, size;
+    MPI_Status status;
+    xyzStruct result;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    xyzStruct last_result = { 0, 0, 0 };
+
+    std::set<setR> rEl;
+    double dop_param, current_dop_param, dop_param_2, current_r, new_x;
+    bool term_value = false;
+
+    if (size < 2)
+        return twoParSequential(a_first, b_first, a_second, b_second, func);
+    if (rank == 0) {
+        std::set<setTwo> set;
+        int k;
+
+        if (b_first - a_first <= 0.0001 || b_second - a_second <= 0.0001) {
+            k = size + 1;
+        } else {
+            k = size;
+        }
+        double len_of_part = (b_first - a_first) / (k - 1);
+
+        for (int i = 0; i < size - 1; ++i) {
+            double x_val_send = a_first + i * len_of_part;
+            MPI_Send(&x_val_send, 1, MPI_DOUBLE, i + 1, 1, MPI_COMM_WORLD);
+        }
+
+        result = forOne(a_second, b_second, b_first, func, eps_one_value);
+        set.insert(setTwo(result.x, result.y, result.z));
+        last_result = result;
+
+        if (k != size) {
+            result = forOne(a_second, b_second, a_first + len_of_part * size, func, eps_one_value);
+            set.insert(setTwo(result.x, result.y, result.z));
+            if (result.z < last_result.z) { last_result = result;}
+        }
+
+        for (int j = 0; j < size - 1; ++j) {
+            MPI_Recv(&result, 3, MPI_DOUBLE, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+            if (result.z < last_result.z) { last_result = result; }
+            set.insert(setTwo(result.x, result.y, result.z));
+        }
+
+        while (!term_value && k < n_max_value) {
+            rEl.clear();
+            dop_param = -1;
+            auto i_value = set.begin();
+            i_value++;
+            auto i_previous_value = set.begin();
+
+            while (i_value != set.end()) {
+                current_dop_param = std::abs(static_cast<double>((i_value->z - i_previous_value->z) /
+                (i_value->x - i_previous_value->x)));
+                if (current_dop_param > dop_param) { dop_param = current_dop_param; }
+                i_value++; i_previous_value++;
+            }
+            if (dop_param > 0) {
+                dop_param_2 = r_param * dop_param;
+            } else { dop_param_2 = 1; }
+
+            i_value = set.begin(); i_value++;
+            i_previous_value = set.begin();
+
+            while (i_value != set.end()) {
+                double ff = dop_param_2 * (i_value->x - i_previous_value->x);
+                double sspow = std::pow((i_value->z - i_previous_value->z), 2) /
+                (dop_param_2 * (i_value->x - i_previous_value->x));
+                double value_minus = 2 * (i_value->z - i_previous_value->z);
+                current_r =  ff + sspow - value_minus;
+
+                rEl.insert(setR(current_r, i_value->x, i_value->z, i_previous_value->x,
+                i_previous_value->z));
+                i_value++; i_previous_value++;
+            }
+
+            auto itR = rEl.begin();
+
+            for (int i = 0; i < size - 1; ++i) {
+                k++;
+                new_x = 0.5 * (itR->x + itR->xPrev) - ((itR->z - itR->zPrev) / (2 * dop_param_2));
+                MPI_Send(&new_x, 1, MPI_DOUBLE, i+1, 1, MPI_COMM_WORLD);
+                if (itR->x - itR->xPrev <= eps_in_func) { term_value = true;}
+                itR++;
+            }
+            for (int i = 0; i < size - 1; ++i) {
+                MPI_Recv(&result, 3, MPI_DOUBLE, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+                if (result.z < last_result.z) { last_result = result;}
+                set.insert(setTwo(result.x, result.y, result.z));
+            }
+        }
+
+
+        for (int i = 0; i < size - 1; ++i) {
+            double term_value = eps_in_func  * 0.001;
+            MPI_Send(&term_value, 1, MPI_DOUBLE, i+1, 1, MPI_COMM_WORLD);
+        }
+    } else {
+        bool term_value = false;
+        while (!term_value) {
+            double mes;
+            MPI_Recv(&mes, 1, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+            if (mes == eps_in_func * 0.001) {
+               term_value = true;
+            } else {
+                result = forOne(a_second, b_second, mes, func, eps_one_value, n_max_value_1);
+                MPI_Send(&result, 3, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+            }
+        }
+    }
+    return last_result;
+}
+
+xyzStruct twoParSequential(const double& a_first, const double& b_first,
+const double& a_second, const double& b_second,
+double(*func)(double x, double y), const double& eps_in_func, const int& n_max_value, const double& eps_one_value,
+const int& n_max_value_1, const double& r_param) {
+    if (a_first > b_first)
+        throw "a_first > b_first";
+
+    if (a_second > b_second)
+        throw "a_second > b_second";
+
+    xyzStruct result;
+    xyzStruct last_result = {0, 0, 0};
+    std::set<setTwo> set;
+
+    result = forOne(a_second, b_second, a_first, func, eps_one_value, n_max_value_1);
+    set.insert(setTwo(result.x, result.y, result.z));
+    last_result = result;
+
+    result = forOne(a_second, b_second, b_first, func, eps_one_value, n_max_value_1);
+    set.insert(setTwo(result.x, result.y, result.z));
+
+    if (result.z < last_result.z) { last_result = result;}
+    double dop_param, current_dop_param, dop_param_2, current_r, new_x;
+    int k = 2;
+    std::set<setR> rEl;
+    bool term_value = false;
+
+    while (!term_value && k < n_max_value) {
+        rEl.clear();
+        dop_param = -1;
+        auto i_value = set.begin();
+        i_value++;
+        auto i_previous_value = set.begin();
+
+        while (i_value != set.end()) {
+            current_dop_param = std::abs(static_cast<double>((i_value->z - i_previous_value->z) /
+            (i_value->x - i_previous_value->x)));
+            if (current_dop_param > dop_param) { dop_param = current_dop_param; }
+            i_value++; i_previous_value++;
+        }
+        if (dop_param > 0) {
+            dop_param_2 = r_param * dop_param;
+        } else {dop_param_2 = 1;}
+
+        i_value = set.begin();
+        i_value++;
+        i_previous_value = set.begin();
+
+        while (i_value != set.end()) {
+            double ff = dop_param_2 * (i_value->x - i_previous_value->x);
+            double sspow = std::pow((i_value->z - i_previous_value->z), 2) /
+            (dop_param_2 * (i_value->x - i_previous_value->x));
+            double value_minus = 2 * (i_value->z - i_previous_value->z);
+            current_r = ff + sspow - value_minus;
+            rEl.insert(setR(current_r, i_value->x, i_value->z, i_previous_value->x, i_previous_value->z));
+            i_value++; i_previous_value++;
+        }
+
+        k++;
+        auto Riter = rEl.begin();
+        new_x = 0.5 * (Riter->x + Riter->xPrev) - ((Riter->z - Riter->zPrev) / (2 * dop_param_2));
+        result = forOne(a_second, b_second, new_x, func, eps_one_value, n_max_value_1);
+        set.insert(setTwo(result.x, result.y, result.z));
+
+        if (result.z < last_result.z) {last_result = result;}
+        if (Riter->x - Riter->xPrev <= eps_in_func) {term_value = true;}
+    }
+    return last_result;
+}
+
+xyzStruct forOne(const double& a_value, const double& b_value,
+const double& x_val_send, double(*func)(double x, double y),
+const double& eps_in_func, const int& n_max_value, const double& r_param) {
+    if (a_value > b_value)
+        throw "a_value > b_value";
+
+    xyzStruct result;
+    bool st_flag = false;
+    std::set<setOne> set;
+
+    double dop_param, current_dop_param, dop_param_2, R, current_r, new_x;
+    double dop_valuel_forOne = func(x_val_send, a_value);
+
+    result.x = x_val_send;
+
+    set.insert(setOne(a_value, dop_valuel_forOne));
+    result.y = a_value;
+    result.z = dop_valuel_forOne;
+    dop_valuel_forOne = func(x_val_send, b_value);
+    set.insert(setOne(b_value, dop_valuel_forOne));
+
+    if (result.z > dop_valuel_forOne) {
+        result.y = b_value;
+        result.z = dop_valuel_forOne;
+    }
+
+    int k = 2;
+    auto maxRiter = set.begin();
+    auto r_i_value_previous_max = set.begin();
+
+    while (!st_flag && k < n_max_value) {
+        dop_param = -1;
+        auto i_value = set.begin();
+        i_value++;
+        auto i_previous_value = set.begin();
+
+        while (i_value != set.end()) {
+            current_dop_param = std::abs(static_cast<double>((i_value->y - i_previous_value->y) /
+            (i_value->x - i_previous_value->x)));
+            if (current_dop_param > dop_param) {dop_param = current_dop_param;}
+            i_value++; i_previous_value++;
+        }
+        if (dop_param > 0) {
+            dop_param_2 = r_param * dop_param;
+        } else {dop_param_2 = 1;}
+
+        i_value = set.begin();
+        i_value++;
+        i_previous_value = set.begin();
+        R = -200000000;
+
+        while (i_value != set.end()) {
+            double ff = dop_param_2 * (i_value->x - i_previous_value->x);
+            double sspow = std::pow((i_value->y - i_previous_value->y), 2) /
+            (dop_param_2 * (i_value->x - i_previous_value->x));
+            double value_minus = 2 * (i_value->y - i_previous_value->y);
+            current_r = ff + sspow - value_minus;
+
+            if (current_r > R) {
+                R = current_r;
+                maxRiter = i_value;
+                r_i_value_previous_max = i_previous_value;
+            }
+
+            i_value++; i_previous_value++;
+        }
+
+        k++;
+        new_x = 0.5 * (maxRiter->x + r_i_value_previous_max->x) -
+        ((maxRiter->y - r_i_value_previous_max->y) / (2 * dop_param_2));
+        dop_valuel_forOne = func(x_val_send, new_x);
+        set.insert(setOne(new_x, dop_valuel_forOne));
+
+        if (result.z > dop_valuel_forOne) {
+            result.y = new_x;
+            result.z = dop_valuel_forOne;
+        }
+
+        if (maxRiter->x - r_i_value_previous_max->x <= eps_in_func) {st_flag = true;}
+    }
+    return result;
+}
+
+bool comparingResults(const xyzStruct& a, const xyzStruct& b, const double& eps_value) {
+    bool eq = false;
+    if (std::abs(static_cast<double>(a.x - b.x)) <= eps_value) {
+        if (std::abs(static_cast<double>(a.y - b.y)) <= eps_value) {
+            if (std::abs(static_cast<double>(a.z - b.z)) <= eps_value)
+                eq = true;
+        }
+    }
+    return eq;
+}
+
+
+
+
+// Copyright 2020 Kokh Vladislav
+#define _USE_MATH_DEFINES
+
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include "./global_optimization.h"
+
+
+TEST(Global_Optimization_MPI, Test_1) {
+    int rank;
+
+    double starttime, endtime;
+    double s_t, e_t;
+    starttime = MPI_Wtime();
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    double(*ptr)(double, double) = func1;
+
+    xyzStruct result = twoPar(-0.9, 1, -1, 1, ptr);
+    if (rank == 0) {
+        endtime = MPI_Wtime();
+        std::cout << "Parallel impl: " << endtime - starttime << std::endl;
+    }
+    s_t= MPI_Wtime();
+    if (rank == 0) {
+        xyzStruct just_result = twoParSequential(-4, 4, -4, 4, ptr);
+        ASSERT_TRUE(comparingResults(result, just_result, 0.1));
+        e_t = MPI_Wtime();
+        std::cout << "Sequential impl: " << e_t - s_t << std::endl;
+    }
+}
+
+TEST(Global_Optimization_MPI, Test_2) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    double(*ptr)(double, double) = func2;
+
+    xyzStruct result = twoPar(-0.9, 1, -1, 1, ptr);
+
+    if (rank == 0) {
+        xyzStruct must_be_result = {0, 0, 4};
+        ASSERT_TRUE(comparingResults(result, must_be_result, 0.1));
+    }
+}
+
+TEST(Global_Optimization_MPI, Test_3) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    double(*ptr)(double, double) = func3;
+
+    xyzStruct result = twoPar(0, 2, 0.3, 1, ptr);
+    if (rank == 0) {
+        xyzStruct must_be_result = {1, 0.5, 4};
+        ASSERT_TRUE(comparingResults(result, must_be_result, 0.1));
+    }
+}
+
+TEST(Global_Optimization_MPI, Test_4) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    double(*ptr)(double, double) = func4;
+
+    xyzStruct result = twoPar(0.1, 5, -5, 5, ptr);
+    if (rank == 0) {
+        xyzStruct must_be_result = {5, -5, -136.18};
+        ASSERT_TRUE(comparingResults(result, must_be_result, 0.1));
+    }
+}
+
+TEST(Global_Optimization_MPI, Test_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    double(*ptr)(double, double) = func5;
+
+    xyzStruct result = twoPar(1, 3, 1, 2, ptr);
+    if (rank == 0) {
+        xyzStruct must_be_result = {2, 1.25, -1.5};
+        ASSERT_TRUE(comparingResults(result, must_be_result, 0.1));
+    }
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+    \end{document}
