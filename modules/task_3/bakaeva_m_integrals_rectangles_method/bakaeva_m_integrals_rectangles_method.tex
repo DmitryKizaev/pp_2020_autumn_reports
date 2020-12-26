@@ -88,9 +88,7 @@
 \section*{Введение}
 \addcontentsline{toc}{section}{Введение}
 Задача вычисления определенного интеграла I для некоторой заданной на отрезке [a, b] функции f(x) является классической задачей математического анализа. Известно, что для функций, имеющих на [a, b] конечное число точек разрыва первого рода, такое значение существует, единственно и может быть формально получено по определению как\\
-\begin{gather*}
-\idotsint_V\ f(x_1,\dots,x_k) \,dx_1 \dots dx_k=  h_i\[ \sum_{n=1}^{\infty} f(p_i)\]
-\end{gather*}
+\begin{equation}\iiint{f(x_1,\dots,x_k) dx_1 \dots dx_k} = h_i\sum_{i=1}^{N}{f(p_{i})} \end{equation}
 \par В данном лабораторной работе будет рассмотрен метод прямоугольников. В ходе работы будет представлен подход к распараллеливанию задачи.
 \newpage
 
@@ -107,7 +105,7 @@
 Алгоритм вычисления интегралов методом прямоугольников:
 \begin{itemize}
 \item Весь участок [a, b] делим на n равных частей с шагом h = (b - a)/ n.
-\item Определяем значение y_i подынтегральной функции f(x) в каждой части деления, т.е y_i = f(x_i), i\in[0, n].
+\item Определяем значение $y_i$ подынтегральной функции $f(x)$ в каждой части деления, т.е $y_i$=f($x_i$), $i\in[0, n]$.
 \item
 \item Для каждой части деления определяем площадь  частичного прямоугольника.
 \item Суммируем эти площади. Приближенное значение интеграла I равно сумме площадей частичных прямоугольников.
@@ -232,12 +230,6 @@ using std::pair;
 
 
 double getSequentialIntegrals(const int n, vector<pair<double, double> > a_b, double (*F)(vector<double>)) {
-    // a_b - массив пределов интегрирования
-    // n - количество отрезков интегрирования
-    // h = (b - a) / n - шаг разбиения отрезка [a, b]
-    // Integral = h * Summ(f(xi))
-    // countIntegrals - количество интегралов
-
     int countIntegrals = static_cast<int>(a_b.size());
     size_t size = 1;
     vector<double> h(countIntegrals);
@@ -265,17 +257,14 @@ double getSequentialIntegrals(const int n, vector<pair<double, double> > a_b, do
 double getParallelIntegrals(const int n, vector<pair<double, double> > a_b, double (*F)(vector<double>)) {
     int size, rank;
 
-    //Число задействованных процессов
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    //Получение номера текущего процесса в рамках коммуникатора
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     int countIntegrals = static_cast<int>(a_b.size());
     vector<double> h(n);
     vector<pair<double, double>> ab(countIntegrals);
-    size_t countElements;  // Количество всех одночленов
+    size_t countElements; 
 
-    // Находим шаги разбиения для каждого отрезка [a,b]
     if (rank == 0) {
         countElements = 1;
         for (int i = 0; i < countIntegrals; i++) {
@@ -289,8 +278,7 @@ double getParallelIntegrals(const int n, vector<pair<double, double> > a_b, doub
         }
     }
 
-    // Рассылаем данные всем процессам
-    int length = n;  // Количество отрезков интегрирования
+    int length = n;  
     MPI_Bcast(&countElements, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
     MPI_Bcast(&length, countIntegrals, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&h[0], countIntegrals, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -309,7 +297,6 @@ double getParallelIntegrals(const int n, vector<pair<double, double> > a_b, doub
         tmp = (remainder + rank * delta);
     }
 
-    // Каждый процесс вычисляет свое количество sum(f(x..))
     vector<vector<double>> forCalculateF(delta);
     for (size_t i = 0; i < delta; i++) {
         int number = static_cast<int>(tmp + i);
@@ -327,10 +314,10 @@ double getParallelIntegrals(const int n, vector<pair<double, double> > a_b, doub
         }
     }
 
-    // Суммирование всех полученых результатов
+
     double Integral = 0.0;
     MPI_Reduce(&result, &Integral, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    // Умножение на h по формуле
+
     for (int i = 0; i < countIntegrals; i++) {
         Integral *= h[i];
     }
