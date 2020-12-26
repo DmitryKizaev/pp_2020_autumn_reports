@@ -403,7 +403,7 @@ std::vector<unsigned int> expand(
         for (unsigned int j = 0; j < w; j++)
             result[(i + radius) * (w + diam) + (j + radius)] =
                                                              image[i * w + j];
-    // frame
+    // frames
     for (unsigned int i = 0; i < h; i++) {
         for (unsigned int j = 0; j < radius; j++) {
             result[(i + radius) * (w + diam) + j] = result[
