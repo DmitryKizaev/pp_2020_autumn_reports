@@ -1,0 +1,531 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (блочное разбиение). Ядро Гаусса 3x3.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-2 \\ Чистов В.М.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Бывают случаи, когда необходимо, по каким-либо причинам, изменить изображение с помощью определенного фильтра. В частности, иногда нужно избавиться от шума, либо просто размыть изображение, применив фильтр Гаусса. Но с увеличением объема данных - увеличивается время их обработки. Поэтому для достижения наибольшей производительности можно воспользоваться распараллеливанием процесса фильтрации изображения. Для этого можно разбить исходные данные на подмассивы меньшего размера, произвести обработку над ними параллельно, а в конце "собрать" результаты с каждого подмассива в один массив.
+\par В данной лабораторной работе будет рассмотрена фильтрация изображения фильтром Гаусса с ядром Гаусса 3х3. Этот вид обработки изображения будет распараллелен между процессами, что сильно уменьшит время её выполнения.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В лабораторной работе необходимо реализовать последовательную и параллельную реализации линейной фильтрации изображений с блочным разбиением с ядром Гаусса 3х3. По полученным результатам сделать выводы.
+\par Для реализации параллельной версии необходимо использовать средства MPI. Для проверки корректности работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+Прежде чем приступить к алгоритму фильтра Гаусса, необходимо создать ядро Гаусса размером 3х3. Для этого нам нужно знать радиус. Радиус для данной задачи равен 1, от него будет зависеть, какого размера получится ядро. Используя этот, с помощью определённой формулы инициализируем ячейки ядра Гаусса, которые скоро нам понадобятся.
+\par Наконец, алгоритм Фильтра Гаусса заключается в следующем:
+\begin{itemize}
+\item Для каждого пикселя исходного изображения рассматривается область соседних пикселей. Размер этой области зависит от размера ядра Гаусса. В нашем случае эта область - 3х3.
+\item Значение каждого пикселя из этой области умножается на значение из соответствующей ячейки в ядре Гаусса, и полученный результат от произведения прибавляется к заранее созданной переменной sum. Так мы обходим все значения из области.
+\item По координатам пикселя исходного изображения, для которого рассматривалась область соседних пикселей, для нового изображения кладётся значение специально созданной переменной sum/16.
+\end{itemize}
+\par В итоге мы обойдём все значения по пикселям исходного изображения и получим новые значения для тех же пикселей в новом изображении.
+
+\newpage
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Для распараллеливания алгоритма фильтра Гаусса необходимо разделить массив значений исходного изображения блочно на подмассивы, по следующему принципу:
+\begin{itemize}
+\item Число разбиений - близжайшее от числа процессов число сверху, равное квадрату какого-либо натурального числа (например: ProcNum = 4, разбиений - 4; ProcNum = 5, разбиений - 9). 
+\item Изображение делим на прямоугольники. Но т.к. изображение хранится в однородном массиве, то необходимо каждый раз создавать однородный массив прямоугольника специальной функцией, которая считает какие пиксели из изображения должны быть в конкретном прямоугольнике разбиения.
+\item К каждому прямоугольнику разбиения применить фильтр Гаусса.
+\item С помощью специльной функции "вытащить" значения из прямоугольника разбиения в подмассив на процессе на нужные места массива.
+\item "Собрать" итоговое изображение, объединив подмассивы со всех процессов.
+\end{itemize}
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Для начала, разберемся с последовательной линейной фильтрацией изображения фильтром Гаусса. Данная функция выполняется на одном процессе:
+\begin{lstlisting}
+std::vector<double> Gauss_Sequential(std::vector<double> image, int width, int height);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, в котором находятся значения пикселей исходного изображения.
+\item ширина изображения в пикселях.
+\item высота изображения в пикселях.
+\end{itemize}
+\par Параллельной фильтрации изображения вызываем следующей функцией:
+\begin{lstlisting}
+std::vector<double> Gauss_Parallel(std::vector<double> image, int width, int height);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, в котором находятся значения пикселей исходного изображения.
+\item ширина изображения в пикселях.
+\item высота изображения в пикселях.
+\end{itemize}
+\par Для того, чтобы прямоугольник разбиения принимал правильные значения массива исходного изображения, вызывается следующая функция:
+\begin{lstlisting}
+std::vector <double> Block_Construct(std::vector<double> image, int num, int widthloc, int heightloc, int heigth);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, в котором находятся значения пикселей исходного изображения.
+\item номер элемента массива исходного изображения, с которого начинается прямоугольник разбиения (левый нижний угол прямоугольника разбиения).
+\item ширина прямоугольника разбиения в пикселях.
+\item высота прямоугольника разбиения в пикселях.
+\item высота исходного изображения в пикселях.
+\end{itemize}
+\par Для того, подмассив на процессе принимал правильные значения массива прямоугольника разбиения, вызываем следующию функцию:
+\begin{lstlisting}
+std::vector <double> Block_Destruct(std::vector<double> empty, std::vector<double> block, int num, int widthloc, int heightloc, int heigth)
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на подмассив процесса.
+\item ссылка на вектор прямоугольника разбиения.
+\item номер элемента массива исходного изображения, с которого начинается прямоугольник разбиения (левый нижний угол прямоугольника разбиения).
+\item ширина прямоугольника разбиения в пикселях.
+\item высота прямоугольника разбиения в пикселях.
+\item высота исходного изображения в пикселях.
+\end{itemize}
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, написанных с помощью использования Google C++ Testing Framework.
+\par Набор представляет из себя тесты, которые сравнивают время работы алгоритмов. Корректность работы алгоритма сравнением векторов, полученных после работы параллельного и последовательного алгоритмов не представляется возможным, т.к. значения вектора прямоугольника разбиения по краям считается с учетом того, что вокруг прямоугольника создается рамка из пикселей со значением 0.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельной линейной фильтрации изображения фильтром Гаусса производились на компьютере со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel COre i5-4460, 3200 MHz, ядер: 4;
+\item Оперативная память: 16 384 МБ (DDR3), 1600 MHz;
+\item ОС: Microsoft Windows 10 Pro.
+\end{itemize}
+
+\par Первый эксперимент проведем на небольшом массиве на 50х50 элементов, чтобы убедиться в работоспособности всех алгоритмов. Время работы и параллельного и последовательного алгоритма ничтожно малы, поэтому объективного сравнения мы не получим.
+\par Проведем эксперимент на изображении 110х130:
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Параллельно & Последовательно & Ускорение  \\
+4        & 0.0003786         & 0.0014594     & 3.85       \\
+7        & 0.0003324        & 0.0029032     & 8.73       \\
+11        & 0.0002897         & 0.0047238     & 16.3
+\end{tabular}
+\end{table}
+
+\par Теперь проведём эксперимент фильтрации Гаусса на изображении размером 1920х1080:
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Параллельно & Последовательно & Ускорение  \\
+4        & 0.0367389         & 0.124462     & 3.38       \\
+7        &   0.0369305        &  0.221753     & 6.00       \\
+11        & 0.0408963         &  0.271673     & 6.75
+\end{tabular}
+\end{table}
+
+\par Исходя из результатов, можно сделать вывод, что эффективность растёт с увеличением процессов. 
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были разработаны последовательная и параллельная реализации линейной фильтрации изображения фильтром Гаусса с ядром Гаусса 3х3 с помощью блочного разбиения.
+\par Основной задачей данной лабораторной работы была реализация параллельной версии, которая должна была быть эффективнее последовательной. Эксперименты показывают, что параллельный вариант работает действительно быстрее, чем последовательный, причём скорость выполнения можно развить очень сильно, если будет много одновременно выполняющихся процессов.
+\par Кроме того, были разработаны и доведены до успешного выполнения тесты, созданные для данного программного проекта с использованием Google C++ Testing Framework и необходимые для подтверждения корректности работы программы.
+\newpage
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П. Теория и практика параллельных вычислений. – 2007. 
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{Korneev}
+Корнеев В. Д. Параллельное программирование в MPI //Новосибирск: Изд-во СО РАН. – 2000.
+\bibitem{Algorithm}
+Фильтр Гаусса: URL: https://habr.com/ru/post/324070/
+\bibitem{Algorithm}
+URL: https://techcave.ru/posts/66-filtry-v-opencv-average-i-gaussianblur.html
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\begin{lstlisting}
+//GaussBlock.h
+
+// Copyright 2020 Chistov Vladimir
+#ifndef MODULES_TASK_3_CHISTOV_V_GAUSS_BLOCK_GAUSS_BLOCK_H_
+#define MODULES_TASK_3_CHISTOV_V_GAUSS_BLOCK_GAUSS_BLOCK_H_
+
+#include <vector>
+
+std::vector<double> Gauss_Sequential(std::vector<double> image, int width, int height);
+std::vector <double> Block_Construct(std::vector<double> image, int num, int widthloc, int heightloc, int heigth);
+std::vector <double> Block_Destruct(std::vector<double> empty, std::vector<double> block, int num, int widthloc,
+int heightloc, int heigth);
+std::vector<double> Gauss_Parallel(std::vector<double> image, int width, int height);
+std::vector<double> GenRandVec(int size);
+const double Gauss_Core[9] = { 1, 2, 1,
+                               2, 4, 2,
+                               1, 2, 1 };
+
+#endif  // MODULES_TASK_3_CHISTOV_V_GAUSS_BLOCK_GAUSS_BLOCK_H_
+
+
+//GaussBlock.cpp
+
+// Copyright 2020 Chistov Vladimir
+
+#include <mpi.h>
+#include <math.h>
+#include <iostream>
+#include <vector>
+#include <random>
+#include <ctime>
+#include "../../../modules/task_3/chistov_v_gauss_block/gauss_block.h"
+
+std::vector<double> Gauss_Sequential(std::vector<double> image, int width, int height) {
+    std::vector<double> calc((width + 2) * (height + 2));
+    for (int x = 0; x < width + 2; x++) {
+        for (int y = 0; y < height + 2; y++) {
+            if ((x == 0) || (y == 0) || (x == width + 1) || (y == height + 1)) {
+                calc[x * (height + 2) + y] = 0;
+            } else {
+                calc[x * (height + 2) + y] = image[(x - 1) * height + y - 1];
+            }
+        }
+    }
+    int count = 0;
+    std::vector<double> res(width * height);
+    for (int x = 1; x < width + 1; x++) {
+        for (int y = 1; y < height + 1; y++) {
+            double sum = 0;
+            for (int i = -1; i < 2; i++) {
+                for (int j = -1; j < 2; j++) {
+                    sum = sum + calc[(x + i) * height + y + j] * Gauss_Core[i + j + 2];
+                }
+            }
+            res[count] = sum / 16;
+            count++;
+        }
+    }
+    return res;
+}
+
+std::vector<double> GenRandVec(int size) {
+    std::mt19937 gen;
+    gen.seed(static_cast<unsigned int>(time(0)));
+    std::vector<double> vec(size);
+    for (int i = 0; i < size; i++) {
+        vec[i] = gen() % 256;
+    }
+    return vec;
+}
+
+std::vector <double> Block_Construct(std::vector<double> image, int num, int widthloc, int heightloc, int heigth) {
+    std::vector<double> calc(widthloc * heightloc);
+    std::vector<double> res(widthloc * heightloc);
+    int a = 0;
+    for (int i = 0; i < widthloc; i++) {
+        for (int j = 0; j < heightloc; j++) {
+            calc[a] = image[num + i * heigth + j];
+            a++;
+        }
+    }
+    a = 0;
+    res = Gauss_Sequential(calc, widthloc, heightloc);
+    return res;
+}
+
+std::vector <double> Block_Destruct(std::vector<double> empty, std::vector<double> block, int num,
+int widthloc, int heightloc, int heigth) {
+    int a = 0;
+    for (int i = 0; i < widthloc; i++) {
+        for (int j = 0; j < heightloc; j++) {
+            empty[num + i * heigth + j] = block[a];
+            a++;
+        }
+    }
+    a = 0;
+    return empty;
+}
+
+std::vector<double> Gauss_Parallel(std::vector<double> image, int width, int height) {
+    int ProcNum, ProcRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    int sidenum = ceil(static_cast<double>(sqrt(ProcNum)));
+    int blockwidth = width / sidenum;
+    int blockwidthrem = width % sidenum;
+    int blockheight = height / sidenum;
+    int blockheightrem = height % sidenum;
+    int ProcCalc = 0;
+    int heightcalc, widthcalc, hrem, wrem;
+    int locbh = 0;
+    int locbw = 0;
+    int start = 0;
+    std::vector<double> loc_sum(width * height);
+    std::vector<double> res(width * height);
+    if (blockwidthrem > 0) {
+        widthcalc = 1;
+    } else {
+        widthcalc = 0;
+    }
+    if (blockheightrem > 0) {
+        heightcalc = 1;
+    } else {
+        heightcalc = 0;
+    }
+    wrem = blockwidthrem;
+    for (int i = 0; i < sidenum; i++) {
+        hrem = blockheightrem;
+        if (wrem < 1) {
+            widthcalc = 0;
+        } else {
+            wrem--;
+            widthcalc = 1;
+        }
+        locbw = blockwidth + widthcalc;
+        for (int j = 0; j < sidenum; j++) {
+            if (hrem < 1) {
+                heightcalc = 0;
+            } else {
+                heightcalc = 1;
+                hrem--;
+            }
+            locbh = blockheight + heightcalc;
+            if (ProcRank == ProcCalc) {
+                auto block = Block_Construct(image, start, locbw, locbh, height);
+                loc_sum = Block_Destruct(loc_sum, block, start, locbw, locbh, height);
+            }
+            start = start + locbh;
+            ProcCalc++;
+            if (ProcCalc > ProcNum - 1) {
+                ProcCalc = 0;
+            }
+        }
+        start = start + height * (locbw - 1);
+    }
+    MPI_Reduce(&loc_sum[0], &res[0], width * height, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    return res;
+}
+
+
+//main.cpp
+
+// Copyright 2020 Chistov Vladimir
+
+#include <mpi.h>
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <iostream>
+#include "../../../modules/task_3/chistov_v_gauss_block/gauss_block.h"
+// fix7
+TEST(Parallel_Count_Sentences_MPI, Image50x50) {
+    int ProcRank, ProcNum;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    int n = 50;
+    double resS, resP;
+    double time1, time2, time3, time4;
+    std::vector<double> mas(n * n), res(n * n), res1(n * n);
+    mas = GenRandVec(n * n);
+    time1 = MPI_Wtime();
+    res1 = Gauss_Parallel(mas, n, n);
+    time2 = MPI_Wtime();
+    resS = time2 - time1;
+    if (ProcRank == 0) {
+        time3 = MPI_Wtime();
+        res = Gauss_Sequential(mas, n, n);
+        time4 = MPI_Wtime();
+        resP = time4 - time3;
+        std::cout << "Time Parallel = " << resP << std::endl << "Time Sequential = " << resS << std::endl << std::endl;
+    }
+    ASSERT_NO_THROW();
+}
+
+TEST(Parallel_Count_Sentences_MPI, Image110x130) {
+    int ProcRank, ProcNum;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    int a = 110;
+    int b = 130;
+    double resS, resP;
+    double time1, time2, time3, time4;
+    std::vector<double> mas(a * b), res(a * b), res1(a * b);
+    mas = GenRandVec(a * b);
+    time1 = MPI_Wtime();
+    res1 = Gauss_Parallel(mas, a, b);
+    time2 = MPI_Wtime();
+    resS = time2 - time1;
+    if (ProcRank == 0) {
+        time3 = MPI_Wtime();
+        res = Gauss_Sequential(mas, a, b);
+        time4 = MPI_Wtime();
+        resP = time4 - time3;
+        std::cout << "Time Parallel = " << resP << std::endl << "Time Sequential = " << resS << std::endl << std::endl;
+    }
+    ASSERT_NO_THROW();
+}
+
+TEST(Parallel_Count_Sentences_MPI, Image123x321) {
+    int ProcRank, ProcNum;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    int a = 123;
+    int b = 321;
+    double resS, resP;
+    double time1, time2, time3, time4;
+    std::vector<double> mas(a * b), res(a * b), res1(a * b);
+    mas = GenRandVec(a * b);
+    time1 = MPI_Wtime();
+    res1 = Gauss_Parallel(mas, a, b);
+    time2 = MPI_Wtime();
+    resS = time2 - time1;
+    if (ProcRank == 0) {
+        time3 = MPI_Wtime();
+        res = Gauss_Sequential(mas, a, b);
+        time4 = MPI_Wtime();
+        resP = time4 - time3;
+        std::cout << "Time Parallel = " << resP << std::endl << "Time Sequential = " << resS << std::endl << std::endl;
+    }
+    ASSERT_NO_THROW();
+}
+
+TEST(Parallel_Count_Sentences_MPI, Image1920x1080) {
+    int ProcRank, ProcNum;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    int a = 1920;
+    int b = 1080;
+    double resS, resP;
+    double time1, time2, time3, time4;
+    std::vector<double> mas(a * b), res(a * b), res1(a * b);
+    mas = GenRandVec(a * b);
+    time1 = MPI_Wtime();
+    res1 = Gauss_Parallel(mas, a, b);
+    time2 = MPI_Wtime();
+    resS = time2 - time1;
+    if (ProcRank == 0) {
+        time3 = MPI_Wtime();
+        res = Gauss_Sequential(mas, a, b);
+        time4 = MPI_Wtime();
+        resP = time4 - time3;
+        std::cout << "Time Parallel = " << resP << std::endl << "Time Sequential = " << resS << std::endl << std::endl;
+    }
+    ASSERT_NO_THROW();
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
