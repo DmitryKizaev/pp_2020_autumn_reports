@@ -1,12 +1,11 @@
-\documentclass[12pt, letterpaper]{report}
+\documentclass{report}
 \usepackage{amsmath,amsthm,amssymb}
 \usepackage{mathtext}
+\usepackage {enumitem}
 \usepackage{graphicx}
-\graphicspath{{pictures/}}
-\DeclareGraphicsExtensions{.jpg}
 \usepackage[T1,T2A]{fontenc}
 \usepackage{lmodern}
-\usepackage[utf8]{inputenc}
+\usepackage[utf8]{luainputenc}
 \usepackage[english,russian]{babel}
 \usepackage[usenames,dvipsnames]{color}
 \usepackage{alltt}
@@ -84,7 +83,7 @@
 память и она стабильно ведёт себя для самых разных вариантов заполнения данных, выгодно
 отличаясь этим от быстрых сортировок.
 
-\chapter*{Постановка задачи}
+\anonchapter{Постановка задачи}
 В данной лабораторной работе было необходимо
 \begin{itemize}
 \item реализовать параллельный метод сортировки Шелла на языке С++ с
@@ -93,7 +92,7 @@
 \item сравнить эффективность алгоритмов
 \end{itemize}
 
-\chapter*{Метод решения}
+\anonchapter{Метод решения}
 Сортировка Шелла представляет собой усовершенствованный алгоритм сортировки
 вставками. Идея метода Шелла состоит в сравнениях и перестановках элементов,
 расположенных не только рядом, но и на определённом расстоянии друг от друга в
@@ -113,7 +112,7 @@
 цикл, в котором полученные из процессов данные размещаются в исходном векторе в
 искомом порядке.
 
-\chapter*{Схема распараллеливания}
+\anonchapter{Схема распараллеливания}
 На начальном этапе имеем некоторый массив (созданный вручную или
 сгенерированный), который хранится в 0 процессе.
 
@@ -131,10 +130,8 @@
 для размещения элементов.
 
 \end{enumerate}
-На конкретном примере это выглядит так:
-\par
-\includegraphics[scale=0.7]{shell}
-\chapter*{Описание программной реализации}
+
+\anonchapter{Описание программной реализации}
 В данной работе реализованы 4 метода :
 \begin{alltt}
 std::vector<int> gen_input(int sz) {} - для генерации вектора заданной 
@@ -148,7 +145,7 @@ std::vector<int> Sequential_sort(std::vector<int> vect) {} - для послед
 
 std::vector<int> Parallel_sort(std::vector<int> vect) {} - для параллельного исполнения метода Шелла над вектором заданной длины.
 \end{alltt}
-\chapter*{Подтверждение корректности}
+\anonchapter{Подтверждение корректности}
 Для подтверждения корректности работы были созданы 5 тестов.
 \begin{alltt}
 TEST(Parallel_sort, sort_random_vect) {}
@@ -159,7 +156,7 @@ TEST(Parallel_sort, return_empty_vect) {}
 \end{alltt}
 Именно с их помощью процесс отладки становится нативным и менее затратным по
 времени.
-\chapter*{Результаты экспериментов}
+\anonchapter{Результаты экспериментов}
 Эксперименты проводились на ПК с следующей конфигурацией:
 \begin{itemize}
 \item Операционная система: Windows 10
@@ -184,7 +181,7 @@ TEST(Parallel_sort, return_empty_vect) {}
 По данным экспериментам можно проследить прямую зависимость роста
 производительности от увеличения числа процессов или/ и выбора параллельного
 метода вместо последовательного.
-\chapter*{Заключение}
+\anonchapter{Заключение}
 Реализованные алгоритмы Шелла позволяют оценить разность в производительности
 для данных подходов, а также изучить конкретные примеры их реализаций.
 
@@ -205,7 +202,7 @@ MPI documentation,
 \\\texttt{https://www.mpich.org/static/docs/v3.2/www3/}
 \end{thebibliography}
 
-\chapter*{Приложение}
+\anonchapter{Приложение}
  	\subsection*{shell\_sort.h}
  	\begin{verbatim}
  	// Copyright 2020 Ekaterina Burmistrova
