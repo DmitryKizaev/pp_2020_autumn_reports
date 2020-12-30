@@ -1,0 +1,639 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large «Быстрая сортировка с четно-нечетным слиянием Бэтчера.»}
+\vspace{4em}
+\end{center}
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-2 \\ Пестреев Д. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Сортировкой называют процесс перегруппировки заданного множества объектов в некотором определенном порядке. 
+Цель сортировки — облегчение последующего поиска элементов в отсортированном множестве во внутренней или внешней памяти. В последнем случае она особенно важна, если имеется только последовательный доступ к файлам (появляется возможность приемлемой замены прямого доступа).
+\par Сортировка в той или иной мере присутствуют во всех приложениях. При обработке больших объемов данных эффективность именно этих операций определяет продуктивность, а иногда и работоспособность всей системы.
+\par Одним из самых быстрых алгоритмов сортировки является сортировка Хоара. Среднее время работы данного алгоритма O(nlogn).  Но при увеличении объема данных алгоритмы увеличивается и время обработки может быть нерпиемлемо большим, в том числе и для алгоритма Хоара. Чтобы решить данную проблему, алгоритм сортировки можно сделать параллельным. Для этого исходные данные делятся на несколько массивов, сортируются последовательно и сливаются в один отсортированный массив. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Целью данной лабораторной работы является реализовать последовательный алгоритм быстрой сортировки и параллельный алгоритм быстрой сортировки с помощью четно-нечетного слияния Бэтчера.  Необходимо провести замеры времени работы алгоритмов и сделать выводы по полученным результатам.
+\par Для параллельной реализации будут использоваться средства MPI. Проверка алгоритмов на корректность будут осуществляться через Google C++ Testing Framework.
+\newpage
+
+% Описание метода решения
+\section*{Описание метода решения}
+\addcontentsline{toc}{section}{Описание метода решения}
+Алгоритм быстрой сортировки основан на операциях сравнения и перестановки. Последовательность действий выглядит следующим образом:
+\begin{enumerate}
+\item	Необходимо выбрать опорный элемент. Стать им может каждый элемент в массиве. От выбора опорного элемента может зависеть производительность. В данной работе в качестве опорного алгоритма будет использоваться элемент по середине.
+\item Выполнить сранение оставшихся элементов с опорным и перераспределить так, чтобы было 3 набора: больше опорного, меньше опорного и равные опорному.
+\item Для наборов, меньших и больших опорного, повторить алгоритм рекурсивно до тех пор, пока эти подмассивы больше 1.
+\end{enumerate}
+\par Худший случай может прозойти, если в качестве опорного элемента выбирается наибольший или наименьший элемент массива.
+\newpage
+
+% Распараллеливание
+\section*{Распараллеливание}
+\addcontentsline{toc}{section}{Распараллеливание}
+Для параллельной реализации необходимо разделить исходный массив на части, количество которых равно количеству процессов. В случае, если невозможно поделить на равные сегменты, добавляем к массиву фиктивные переменные, которые больше или меньше всех элементов, то есть можно взять максимальное или минимальное значение для данного типа данных. Потом распререляем их по процессам.
+\par Далее каждая часть сортируется быстрой сортировкой. Затем строится сеть обменной сортировки Бэтчера. Данный алгоритм принимает на вход массив номеров процессов и заполняет массив компараторов, которые хранят пары номеров процессов. Алгоритм построения сети работает следующим образом:
+\begin{enumerate}
+\item Массив номеров процессов делится на 2 части;
+\item Данные сегменты рекурсивно сливаются  по четным и нечетным элементам;
+\item Записываем элементы в массив компараторов;
+\item Рекурсивное повторение до тех пор, пока длина сегмента больше 1.
+\end{enumerate}
+\par После построения сети Бэтчера берем пары процессов, записанные в массиве компараторов. Каждый процесс из пары посылает свой фрагмент и посылает чужой. Далее они сливаются так, что в одном процессе сохраняется меньший массив, а в другом больший. В итоге все сегменты отправляются в нулевой процесс и компонуются в массив-результат в порядке номера процесса.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В течение лабораторной работы были написаны следующие функции:
+\begin{lstlisting}
+std::vector<int> getRandomVector(int size);
+\end{lstlisting}
+\par Данная функция возвращает случайно сгенерированный вектор заданной длины.
+\begin{lstlisting}
+void qsort(int* vec, int left, int right);
+\end{lstlisting}
+\par Данная функция в качестве параметров принимает одномерный массив значений, начальный и конечный индекс массива. В качестве опорного элемента берется элемент, индекс которого равен среднему арифметическому начального и конечного индекса массива.
+\begin{lstlisting}
+std::vector<int> quickSortV(const std::vector<int>& vec);
+\end{lstlisting}
+\par Данная функция принимает константную ссылку на вектор и возвращает отсортированный результат. Так как значения входного вектора берутся по константной ссылке, невозможно реализовать для него рекуррентный алгоритм быстрой сортировки. Поэтому значения вектора записываются в одномерный динамический массив и сортируются функцией qsort. Отсортированный массив передается в результат в виде вектора.
+\begin{lstlisting}
+void recur_merge(const std::vector<int>& left, const std::vector<int>& right);
+\end{lstlisting}
+\par Данная функция принимает ссылки на векторы, которые нужно слить по четным и нечетным индексам и заполняет массив компараторов. Вызывается в функции networking.
+\begin{lstlisting}
+void networking(const std::vector<int>& arr);
+\end{lstlisting}
+\par Данная функция принимает константную сслылку на вектор, содержащий номера процессов. Далее происходит деление вектора пополам. Потом происходит рекурсивный вызов и функция recur\_merge для данных половин.
+\begin{lstlisting}
+void batchers_network(int proc_size);
+\end{lstlisting}
+\par Функция принимает количество процессов, создает вектор, заполненный номерами процессов и вызывает функцию networking.
+\begin{lstlisting}
+std::vector<int> parallel_sorting(const std::vector<int>& vec);
+\end{lstlisting}
+\par Функция принимает массив в виде вектора, который нужно отсортировать. В конце работы возвращает уже отсортированный массив. В данной функции реализована параллельная часть программы. Данные разделяются между процессами и сортируются алгоритмом сортировки Хоара. Далее строится сеть Бэтчера. После постройки берутся пары процессов из массива компараторов и сливаются части, хранящиеся в данных парах. После слияния все части собираются в один массив, который является результатом.  
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+\par Данные тесты проверяют корректность работы алгоритма(результаты работы сортировки из стандартной библиотеки С++  и параллельного алгоритма сравниваются друг с другом) и эффективность параллельного алгоритма по сравнению с последовательным(сравнение по времени).
+\par Успешное прохождение всех тестов доказывает корректность работы всей программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельного алгоритма быстрой сортировки четно-нечетным слиянием Бэтчера производились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i3-6006U CPU @ 2.00 GHz, 2.00 GHz, 2 ядра, 4 потока;
+\item Оперативная память: 16384 МБ (DDR4);
+\item ОС: Microsoft Windows 10 Pro. 
+\end{itemize}
+
+\par Для эксперимента будем исспользовать вектор размера 18523140, заполненный случайными целыми числами. 
+\par Результаты экспериментов представлены в таблице
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Кол-во процессов  & Последовательно & Параллельно \\
+1      & 4.04227         & 4.20516  \\
+2     & 4.03881         & 2.78243  \\
+3     & 3.72178         & 2.17409 \\
+4     & 3.66811        & 2.01871 \\
+5     &3.72273         & 2.19946  \\
+6     &3.77097         & 2.35688  
+
+\end{tabular}
+\end{table}
+
+\par Полученные результаты говорят о том, что параллельный алгоритм работает быстрее последовательного. Но с увеличением количества процессов эффектвность программы начинает падать. Это связано с большим количеством сравнений и издержками коллективных операциях приема и передачи данных.
+\par Для данной системы наиболее эффективным будет использование 4 процессов.
+\newpage
+
+% Вывод
+\section*{Вывод}
+\addcontentsline{toc}{section}{Вывод}
+В результате выполнения лабораторной работы созданы последовательный алгоритм быстрой сортировки и параллельный с четно-нечетным слиянием Бэтчера.
+\par Задача состояла в разработке параллельного алгоритма, который будет эффективнее последовательного. Результаты экспериментов говорят о том, что задача выполнена.
+\par Также результаты экспериментов позволили сравнить время работы алгоритмов. Для подтверждения корректности работы программы был разработан набор тестов Google C++
+Testing Framework, которые были успешно пройдены.
+
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Hoare} 
+Hoare C. A. R. Quicksort //The Computer Journal. – 1962. – Т. 5. – №. 1. – С. 10-16.
+\bibitem{Gergel}
+Гергель В. П. Теория и практика параллельных вычислений. – 2007. 
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{Habr} Сеть обменной сортировки со слиянием Бэтчера [Электронный ресурс] // URL: \url{https://habr.com/ru/post/275889/}
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В данном разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// quick_sort_even_odd_merge.h
+
+// Copyright 2020 Pestreev Daniil
+#ifndef MODULES_TASK_3_PESTREEV_D_QUICK_SORT_EVEN_ODD_QUICK_SORT_EVEN_ODD_MERGE_H_
+#define MODULES_TASK_3_PESTREEV_D_QUICK_SORT_EVEN_ODD_QUICK_SORT_EVEN_ODD_MERGE_H_
+
+#include <vector>
+#include <string>
+
+std::vector<int> getRandomVector(int size);
+void Swap(int a, int b);
+void qsort(int* vec, int left, int right);
+std::vector<int> quickSortV(const std::vector<int>& vec);
+void recur_merge(const std::vector<int>& left, const std::vector<int>& right);
+void networking(const std::vector<int>& arr);
+void batchers_network(int proc_size);
+std::vector<int> parallel_sorting(const std::vector<int>& vec);
+
+
+#endif  // MODULES_TASK_3_PESTREEV_D_QUICK_SORT_EVEN_ODD_QUICK_SORT_EVEN_ODD_MERGE_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+// quick_sort_even_odd_merge.cpp
+
+// Copyright 2020 Pestreev Daniil
+#include <mpi.h>
+#include <iostream>
+#include <vector>
+#include <random>
+#include <limits>
+#include <utility>
+#include <ctime>
+#include "../../../modules/task_3/pestreev_d_quick_sort_even_odd/quick_sort_even_odd_merge.h"
+
+std::vector<std::pair<int, int>> comps;
+
+std::vector<int> getRandomVector(int size) {
+    std::mt19937 gen;
+    gen.seed(time(0));
+    std::vector<int> a(size);
+
+    for (int i = 0; i < size; i++) {
+        a[i] = gen();
+    }
+    return a;
+}
+
+void qsort(int* vec, int left, int right) {
+    int mid;
+    int l = left;
+    int r = right;
+    mid = vec[(l + r) / 2];
+    do {
+        while (vec[l] < mid) l++;
+        while (vec[r] > mid) r--;
+        if (l <= r) {
+            std::swap(vec[l], vec[r]);
+            l++;
+            r--;
+        }
+    } while (l < r);
+    if (left < r) qsort(vec, left, r);
+    if (l < right) qsort(vec, l, right);
+}
+
+std::vector<int> quickSortV(const std::vector<int>& vec) {
+    int size = vec.size();
+    int* arr = new int[size];
+    for (int i = 0; i < size; i++) {
+        arr[i] = vec[i];
+    }
+    qsort(arr, 0, size - 1);
+    std::vector<int> tmp;
+    for (int i = 0; i < size; i++) {
+        tmp.push_back(arr[i]);
+    }
+    return tmp;
+}
+
+void recur_merge(const std::vector<int>& left, const std::vector<int>& right) {
+    int array_count = left.size() + right.size();
+    if (array_count <= 1) {
+        return;
+    }
+    if (array_count == 2) {
+        comps.push_back(std::pair<int, int>(left[0], right[0]));
+        return;
+    }
+    std::vector<int> left_odd;
+    std::vector<int> left_even;
+    std::vector<int> right_odd;
+    std::vector<int> right_even;
+    int leftsize = left.size();
+    for (int i = 0; i < leftsize; i++) {
+        if (i % 2) {
+            left_even.push_back(left[i]);
+        } else {
+            left_odd.push_back(left[i]);
+        }
+    }
+    int rightsize = right.size();
+    for (int i = 0; i < rightsize; i++) {
+        if (i % 2) {
+            right_even.push_back(right[i]);
+        } else {
+            right_odd.push_back(right[i]);
+        }
+    }
+
+    recur_merge(left_odd, right_odd);
+    recur_merge(left_even, right_even);
+
+    std::vector<int> res;
+    for (int i = 0; i < leftsize; i++) {
+        res.push_back(left[i]);
+    }
+    for (int i = 0; i < rightsize; i++) {
+        res.push_back(right[i]);
+    }
+
+    for (int i = 1; i + 1 < array_count; i += 2) {
+        comps.push_back(std::pair<int, int>(res[i], res[i + 1]));
+    }
+}
+
+void networking(const std::vector<int>& arr) {
+    int arr_size = arr.size();
+
+    if (arr_size <= 1) {
+        return;
+    }
+
+    std::vector<int> l(arr.begin(), arr.begin() + arr_size / 2);
+    std::vector<int> r(arr.begin() + arr_size / 2, arr.begin() + arr_size);
+    networking(l);
+    networking(r);
+    recur_merge(l, r);
+}
+
+void batchers_network(int proc_size) {
+    if (proc_size <= 1)
+        return;
+    std::vector<int> procs;
+    for (int i = 0; i < proc_size; i++) {
+        procs.push_back(i);
+    }
+
+    networking(procs);
+}
+
+std::vector<int> parallel_sorting(const std::vector<int>& vec) {
+    int proc_rank, proc_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+
+    std::vector<int> globalV = vec;
+    int vecsizeG = globalV.size();
+
+    if (proc_size < 0) {
+        return globalV;
+    }
+
+    if (proc_size >= vecsizeG || proc_size == 1) {
+        if (proc_rank == 0) {
+            globalV = quickSortV(vec);
+        }
+        return globalV;
+    }
+    int exitcircle = -1;
+    int vecsizechange = 0;
+    if (proc_rank == 0) {
+        while (exitcircle < 0) {
+            exitcircle = -1;
+            if (globalV.size() % proc_size) {
+                int o = std::numeric_limits<int>::max();
+                vecsizechange++;
+                globalV.push_back(o);
+            } else {
+                exitcircle = 1;
+            }
+        }
+    }
+    vecsizeG = globalV.size();
+
+    if (proc_rank == 0) {
+        for (int i = 1; i < proc_size; i++) {
+            MPI_Send(&vecsizeG, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        }
+    } else {
+        MPI_Recv(&vecsizeG, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+
+
+    int vecsizeL = vecsizeG / proc_size;
+
+    std::vector<int> localV(vecsizeL);
+    std::vector<int> neighboringV(vecsizeL);
+    std::vector<int> tmpV(vecsizeL);
+    MPI_Scatter(&globalV[0], vecsizeL, MPI_INT, &localV[0], vecsizeL, MPI_INT, 0, MPI_COMM_WORLD);
+
+    batchers_network(proc_size);
+    const std::vector<int> v = localV;
+    localV = quickSortV(v);
+    int comps_size = comps.size();
+    for (int i = 0; i < comps_size; i++) {
+        if (proc_rank == comps[i].first) {
+            MPI_Send(&localV[0], vecsizeL, MPI_INT, comps[i].second, 0, MPI_COMM_WORLD);
+            MPI_Recv(&neighboringV[0], vecsizeL, MPI_INT, comps[i].second, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            int localidx = 0;
+            int neighboridx = 0;
+            for (int tmp_index = 0; tmp_index < vecsizeL; tmp_index++) {
+                int local = localV[localidx];
+                int neighbor = neighboringV[neighboridx];
+                if (local < neighbor) {
+                    tmpV[tmp_index] = local;
+                    localidx++;
+                } else {
+                    tmpV[tmp_index] = neighbor;
+                    neighboridx++;
+                }
+            }
+            localV = tmpV;
+        } else if (proc_rank == comps[i].second) {
+            MPI_Recv(&neighboringV[0], vecsizeL, MPI_INT, comps[i].first, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(&localV[0], vecsizeL, MPI_INT, comps[i].first, 0, MPI_COMM_WORLD);
+            int start = vecsizeL - 1;
+            int localidx = start;
+            int neighboridx = start;
+            for (int tmp_index = start; tmp_index >= 0; tmp_index--) {
+                int local = localV[localidx];
+                int neighbor = neighboringV[neighboridx];
+                if (local > neighbor) {
+                    tmpV[tmp_index] = local;
+                    localidx--;
+                } else {
+                    tmpV[tmp_index] = neighbor;
+                    neighboridx--;
+                }
+            }
+            localV = tmpV;
+        }
+    }
+    MPI_Gather(&localV[0], vecsizeL, MPI_INT, &globalV[0], vecsizeL, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (proc_rank == 0 && vecsizechange > 0)
+        globalV.erase(globalV.begin() + vecsizeG - vecsizechange, globalV.begin() + vecsizeG);
+    return globalV;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+// Copyright 2020 Pestreev Daniil
+#include <mpi.h>
+#include <gtest/gtest.h>
+#include <gtest-mpi-listener.hpp>
+#include <math.h>
+#include <vector>
+#include <random>
+#include <ctime>
+#include <algorithm>
+
+#include "../../../modules/task_3/pestreev_d_quick_sort_even_odd/quick_sort_even_odd_merge.h"
+
+TEST(TestQuickSort, IntroducedVector) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> vec = {-8098, 1009, -160, -1, 179796, 2,
+        -1603, 166, -7396, -199, -18348, -15, 659, 7, 82519};
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+TEST(TestQuickSort, SameNumber1000) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> vec(1000);
+    std::fill(vec.begin(), vec.end(), 8);
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+TEST(TestQuickSort, randomVector3) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int vecsize = 3;
+    std::vector<int> vec = getRandomVector(vecsize);
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+TEST(TestQuickSort, randomVector131) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int vecsize = 131;
+    std::vector<int> vec = getRandomVector(vecsize);
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+TEST(TestQuickSort, randomVector100100) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int vecsize = 100100;
+    std::vector<int> vec = getRandomVector(vecsize);
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+TEST(TestQuickSort, randomVector18523140) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int vecsize = 18523140;
+    std::vector<int> vec = getRandomVector(vecsize);
+    double startTime = MPI_Wtime();
+    std::vector<int> resP = parallel_sorting(vec);
+    double finishTime = MPI_Wtime();
+    double paralleltime = finishTime - startTime;
+    if (rank == 0) {
+        std::vector<int> resS = vec;
+        double startTime = MPI_Wtime();
+        std::sort(resS.begin(), resS.end());
+        double sequentialtime = MPI_Wtime() - startTime;
+        std::cout << "Sequential sort:" << sequentialtime << std::endl;
+        std::cout << "Parallel sort:" << paralleltime << std::endl;
+        ASSERT_EQ(resS, resP);
+    }
+}
+
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+    ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+
+\end{lstlisting}
+
+\end{document}
