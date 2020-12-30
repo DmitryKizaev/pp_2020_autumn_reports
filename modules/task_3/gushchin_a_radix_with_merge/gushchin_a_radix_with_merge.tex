@@ -1,0 +1,579 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+	basicstyle=\footnotesize,
+	keywordstyle=\color{blue}\ttfamily,
+	stringstyle=\color{red}\ttfamily,
+	commentstyle=\color{green}\ttfamily,
+	morecomment=[l][\color{magenta}]{\#}, 
+	tabsize=4,
+	breaklines=true,
+	breakatwhitespace=true,
+	title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+	
+	\begin{titlepage}
+		
+		\begin{center}
+			Министерство науки и высшего образования Российской Федерации
+		\end{center}
+		
+		\begin{center}
+			Федеральное государственное автономное образовательное учреждение высшего образования \\
+			Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+		\end{center}
+		
+		\begin{center}
+			Институт информационных технологий, математики и механики
+		\end{center}
+		
+		\vspace{4em}
+		
+		\begin{center}
+			\textbf{\LargeОтчет по лабораторной работе} \\
+		\end{center}
+		\begin{center}
+			\textbf{\Large«Поразрядная сортировка для целых чисел с простым слиянием»} \\
+		\end{center}
+		
+		\vspace{4em}
+		
+		\newbox{\lbox}
+		\savebox{\lbox}{\hbox{text}}
+		\newlength{\maxl}
+		\setlength{\maxl}{\wd\lbox}
+		\hfill\parbox{7cm}{
+			\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-3 \\ Гущин А. А.\\
+			\\
+			\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+		}
+		\vspace{\fill}
+		
+		\begin{center} Нижний Новгород \\ 2020 \end{center}
+		
+	\end{titlepage}
+	
+	\setcounter{page}{2}
+	
+	% Содержание
+	\tableofcontents
+	\newpage
+	
+	% Введение
+	\section*{Введение}
+	\addcontentsline{toc}{section}{Введение}
+	Алгоритмы сортировки являются одними из важнейших классов алгоритмов, широко применяемых в информационных технологиях. Задачи, требующие упорядочивания элементов некоторого списка, встречаются повсеместно. Было разработано большое число алгоритмов сортировки, отличающихся по своим характеристикам, сложности, затратам по памяти и так далее. Одной из характеристик сортировки является использование сравнений. В данной работе рассматривается поразрядная сортировка целых чисел (radix sort), не использующая сравнение элементов.
+	\par Современные ЭВМ могут иметь множество вычислительных ядер, могут быть объединены в вычислительные кластеры, что позволяет производить вычисления независимо друг от друга. Для более удобной работы с несколькими вычислительными ядрами был разработан стандарт MPI, реализации которого позволяют производить обмен сообщениями между одновременно запущенными процессами. Это дает возможность расспараллеливать алгоритмы, значительно уменьшая время их работы.
+	\newpage
+	
+	% Постановка задачи
+	\section*{Постановка задачи}
+	\addcontentsline{toc}{section}{Постановка задачи}
+	Необходимо реализовать последовательную и параллельную реализации поразрядной сортировки целых чисел с простым слиянием, провести тесты для оценки времени и подтверждения корректности алгоритма. Сделать выводы по полученным результатам.
+	\newpage
+	
+	% Описание алгоритма
+	\section*{Описание алгоритма}
+	\addcontentsline{toc}{section}{Описание алгоритма}
+	При поразрядной сортировке на вход приходит вектор целых чисел. В цикле из всех элементов вектора выбирается максимальный.
+	\par Сравнение производится поразрядно: сначала сравниваются значения одного крайнего разряда, и элементы группируются по результатам этого сравнения, затем сравниваются значения следующего разряда, соседнего, и элементы либо упорядочиваются по результатам сравнения значений этого разряда внутри образованных на предыдущем проходе групп, либо переупорядочиваются в целом, но сохраняя относительный порядок, достигнутый при предыдущей сортировке. Затем аналогично делается для следующего разряда, и так до конца.
+	\par Идея простого слияния заключается в том, что один поток может выполнять слияние двух отсортированных массивов по классическому алгоритму. В этом случае слияние n массивов могут выполнять n/2 параллельных потоков. На следующем шаге слияние n/2 полученных массивов будут выполнять n/4 потоков и т.д. Таким образом, последнее слияние будет выполнять один поток.
+	\newpage
+	
+	% Описание схемы распараллеливания
+	\section*{Описание схемы распараллеливания}
+	\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+	В параллельной реализации первым делом происходит разделение вектора на части и отправка в остальные процессы. Так как число элементов в общем случае может не делиться на количество процессов, то необходимо распределить остаток. Для этого используется стратегия равномерного распределения. Для первых \(\Delta\) процессов количество получаемых элементов равно \(\kappa + 1\), для остальных - \(\kappa\), где \(\Delta\) - остаток от деления числа сортируемых элементов на количество процессов, а \(\kappa\) - частное от деления числа сортируемых элементов на количество процессов, округленное вниз.
+	\par Когда элементы распределены по всем процессам, в каждом из процессов происходит сортировка локального вектора, используя реализованный ранее последовательный алгоритм поразрядной сортировки. Для того, чтобы получить итоговый результат, необходимо слить полученные локальные векторы. Для этого используется простого слияние.
+	\par Алгоритм простого слияния:
+	\begin{enumerate}
+		\item Создаем вектор из N элементов и заполняем его значениями от 0 до N-1, где N - количество процессов. Данный вектор соответствует всем процессам, имеющим локальные векторы, которые необходимо слить.
+		\item Итерируемся по данному вектору, на i-той итерации i-тый процесс отправляет данные, а i-1-ый принимает. Уменьшем значение i на 2. Если i становится меньше, чем остаток от деления количества оставшихся процессов на 2, то останавливаем цикл.
+		\item На каждой итерации удаляем i-тый элемент в векторе процессов. Это означает, что данный процесс отправил свои данные и произошло слияние с данными другого процесса.
+		\item Повторяем пункты 2 и 3 до тех пор, пока в векторе процессов больше одного элемента.
+		\item После завершения работы слияния в нулевом процессе окажется слитый вектор с результатом работы сортировки.
+	\end{enumerate}
+	\newpage
+	
+	% Описание программной реализации
+	\section*{Описание программной реализации}
+	\addcontentsline{toc}{section}{Описание программной реализации}
+	Алгоритм поразрядной сортировки целых чисел реализован в шаблонной функции
+	\begin{lstlisting}
+		template<typename T>
+        std::vector<T> radixSortSigned(const std::vector<T>& in);
+	\end{lstlisting}
+	\par Входным параметром функция принимает вектор, элементы которого надо упорядочить. Возвращаемым значением является вектор упорядоченных элементов.
+	\par Функция сортировки использует вспомогательные функции. Следующая функция создает и заполняет вектор счетчиков для каждого байта. 
+	\begin{lstlisting}
+		template<typename T>
+        std::vector<int> calculateCounters(const std::vector<T>& data);
+	\end{lstlisting}
+	\par Входным параметром явлется вектор, элементы которого надо упорядочить. Возвращаемым значением является вектор счетчиков.
+	\par Функция, реализующая i-тый проход по битам числа.
+	\begin{lstlisting}
+		template<typename T>
+        std::vector<T> radixPass(const std::vector<T>& source, std::vector<int> counter, int byteOffset);
+	\end{lstlisting}
+	\par Входным параметром явлется вектор, элементы которого надо упорядочить, вектор счетчиков для данного байта и текущий обрабатываемый байт. Возвращаемым значением является массив, отсортированный по byteOffset байту.
+	\par Так как в знаковых целых типах старший бит отвечает за знак, то последний байт необходимо обрабатывать отдельно. Для этого написана следующая функция
+	\begin{lstlisting}
+        template<typename T>
+        std::vector<T> radixLastPassSigned(const std::vector<T>& source, std::vector<int> counter, int byteOffset);
+	\end{lstlisting}
+	\par Входным параметром явлется вектор, элементы которого надо упорядочить, вектор счетчиков для данного байта и текущий обрабатываемый байт. Возвращаемым значением является массив, отсортированный по byteOffset байту.
+	\par Функция, реализующая слияние двух векторов.
+	\begin{lstlisting}
+		template <typename T>
+        std::vector<T> mergeVectors(const std::vector<T>& source1, const std::vector<T>& source2);
+	\end{lstlisting}
+	\par Входным параметром являются два вектора, элементы которых надо слить в один упорядоченный вектор. Возвращаемым значением является массив, слитый из двух входных массивов.
+	\par Функция генерации случайного вектора заданной длины
+	\begin{lstlisting}
+        template<typename T>
+        std::vector<T> generateRandomVector(const int size);
+	\end{lstlisting}
+	\par Входным параметром является число необходимых элементов. Возвращаемым значением является случайный массив из size элементов.
+	\newpage
+	
+	% Описание экспериментов
+	\section*{Описание экспериментов}
+	\addcontentsline{toc}{section}{Описание экспериментов}
+	Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+	\par Тесты разработаны таким образом, чтобы обеспечить проверку корректности работы программы с различными входными данными. Прохождение всех тестов означает, что программа реализована корректно.
+	\newpage
+	
+	% Результаты экспериментов
+	\section*{Результаты экспериментов}
+	\addcontentsline{toc}{section}{Результаты экспериментов}
+	Для проведения тестов производилась сортировка векторов размером 10000000 значений каждый. 
+	\par Результаты тестов представлены в Таблице 1.
+	\begin{table}[!h]
+		\caption{Результаты экспериментов}
+		\centering
+		\begin{tabular}{lllll}
+			Процессы & Последовательный метод & Параллельный метод & Ускорение   \\
+			1        & 4.83231                & 4.64792            & 1.0396      \\
+			2        & 4.79023                & 3.95103            & 1.2124      \\
+			3        & 4.75129                & 3.44799            & 1.3779      \\
+			4        & 4.72903                & 2.94539            & 1.6055      \\
+			13       & 4.7277                 & 3.70868            & 1.2747
+		\end{tabular}
+	\end{table}
+	\par По данным, полученным в результате тестов, можно сделать вывод о том, что параллельная функция работает действительно быстрее, чем последовательная.
+	\par Наибольшее ускорение достигается на 4 процессах, так как 4 процесса соответствуют 4 реальным ядрам процессора текущий конфигурации ПК.
+	\newpage
+	
+	% Заключение
+	\section*{Заключение}
+	\addcontentsline{toc}{section}{Заключение}
+	Все поставленные задачи выполнены. Реализованы параллельная и последовательная функции выполняющие поразрядную сортировку целых чисел с простым слиянием. На тестах продемонстрирована эффективность работы параллельной функции. Также реализованы и пройдены тесты, проверящие корректность рабыты функций.
+	\newpage
+	
+	% Список литературы
+	\begin{thebibliography}{1}
+		\addcontentsline{toc}{section}{Список литературы}
+        \bibitem{Strongin} Гергель В.П., Стронгин Р.Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. Учебное пособие – Нижний Новгород: Изд-во ННГУ им. Н.И. Лобачевского, 2003. 184 с. ISBN 5-85746-602-4.
+        \bibitem{Sidnev} Сиднев А.А., Сысоев А.В., Мееров И.Б. Образовательный комплекс «Параллельные численные методы». Лабораторная работа №3. Сортировки
+        \bibitem{AlgoList} Электронный ресурс. AlgoList.ru. Поразрядная сортировка. \url{http://algolist.ru/sort/radix_sort.php}
+	\end{thebibliography}
+	\newpage
+	
+	% Приложение
+	\section*{Приложение}
+	\addcontentsline{toc}{section}{Приложение}
+	В данном разделе находится код, написанный в рамках лабораторной работы.
+	\begin{lstlisting}
+		// radix_with_merge.h
+		
+		// Copyright 2020 Gushchin Artem
+        #ifndef MODULES_TASK_3_GUSHCHIN_A_RADIX_WITH_MERGE_RADIX_WITH_MERGE_H_
+        #define MODULES_TASK_3_GUSHCHIN_A_RADIX_WITH_MERGE_RADIX_WITH_MERGE_H_
+        
+        #include <vector>
+        #include <random>
+        #include <algorithm>
+        
+        using uchar = unsigned char;
+        
+        std::vector<int> parallelRadixSort(const std::vector<int>& source, const int sourceSize);
+        
+        template<typename T>
+        std::vector<T> generateRandomVector(const int size) {
+            std::random_device rd;
+            std::mt19937 gen;
+            gen.seed(rd());
+        
+            std::vector<T> randomVector(size);
+        
+            for (int i = 0; i < size; i++)
+                randomVector[i] = gen() % 10000 - 5000;
+        
+            return randomVector;
+        }
+        
+        template<typename T>
+        std::vector<int> calculateCounters(const std::vector<T>& data) {
+            auto dataSize = data.size();
+        
+            std::vector<int> counters(256 * sizeof(T));
+        
+            const uchar* dataBytes = reinterpret_cast<const uchar*>(data.data());
+            const uchar* dataEnd = reinterpret_cast<const uchar*>(data.data() + dataSize);
+        
+            while (dataBytes != dataEnd) {
+                for (unsigned int i = 0; i < sizeof(T); i++) {
+                    counters[256 * static_cast<size_t>(i) + *dataBytes]++;
+                    dataBytes++;
+                }
+            }
+        
+            return counters;
+        }
+        
+        template<typename T>
+        std::vector<T> radixPass(const std::vector<T>& source, std::vector<int> counter, int byteOffset) {
+            int partialSum = 0;
+            int currentCount;
+            for (int i = 0; i < 256; i++) {
+                currentCount = counter[i];
+                counter[i] = partialSum;
+                partialSum += currentCount;
+            }
+        
+            const uchar* sourceBytes = reinterpret_cast<const uchar*>(source.data());
+            std::vector<T> dest(source.size());
+            for (size_t i = 0; i < source.size(); i++) {
+                dest[counter[sourceBytes[sizeof(T) * i + byteOffset]]] = source[i];
+                counter[sourceBytes[sizeof(T) * i + byteOffset]]++;
+            }
+        
+            return dest;
+        }
+        
+        template<typename T>
+        std::vector<T> radixLastPassSigned(const std::vector<T>& source, std::vector<int> counter, int byteOffset) {
+            int numNeg = 0;
+            for (int i = 128; i < 256; i++)
+                numNeg += counter[i];
+        
+            int partialSum = numNeg;
+            int currentCount;
+            for (int i = 0; i < 128; i++) {
+                currentCount = counter[i];
+                counter[i] = partialSum;
+                partialSum += currentCount;
+            }
+        
+            partialSum = 0;
+            for (int i = 128; i < 256; i++) {
+                currentCount = counter[i];
+                counter[i] = partialSum;
+                partialSum += currentCount;
+            }
+        
+            const uchar* sourceBytes = reinterpret_cast<const uchar *>(source.data());
+            std::vector<T> dest(source.size());
+            for (size_t i = 0; i < source.size(); i++) {
+                dest[counter[sourceBytes[sizeof(T) * i + byteOffset]]] = source[i];
+                counter[sourceBytes[sizeof(T) * i + byteOffset]]++;
+            }
+        
+            return dest;
+        }
+        
+        template<typename T>
+        std::vector<T> radixSortSigned(const std::vector<T>& in) {
+            int size = static_cast<int>(in.size());
+            std::vector<T> out(in);
+        
+            auto counters = calculateCounters(in);
+        
+            for (unsigned int i = 0; i < sizeof(T); i++) {
+                std::vector<int> counter(counters.begin() + 256 * static_cast<size_t>(i),
+                                          counters.begin() + 256 * static_cast<size_t>(i) + 256);
+        
+                if (counter[0] == size)
+                    continue;
+        
+                if (i != sizeof(T) - 1)
+                    out = radixPass(out, counter, i);
+                else
+                    out = radixLastPassSigned(out, counter, i);
+            }
+        
+            return out;
+        }
+        
+        template <typename T>
+        std::vector<T> mergeVectors(const std::vector<T>& source1, const std::vector<T>& source2) {
+            std::vector<T> dest(source1.size() + source2.size());
+        
+            std::merge(source1.begin(), source1.end(), source2.begin(), source2.end(), dest.begin());
+        
+            return dest;
+        }
+        
+        #endif  // MODULES_TASK_3_GUSHCHIN_A_RADIX_WITH_MERGE_RADIX_WITH_MERGE_H_
+	\end{lstlisting}
+	\begin{lstlisting}
+		// radix_with_merge.cpp
+		
+		// Copyright 2020 Gushchin Artem
+        #include <mpi.h>
+        #include <random>
+        #include <vector>
+        #include <algorithm>
+        #include "../../../modules/task_3/gushchin_a_radix_with_merge/radix_with_merge.h"
+        
+        std::vector<int> parallelRadixSort(const std::vector<int>& source, const int sourceSize) {
+            if (sourceSize == 0)
+                return std::vector<int>();
+        
+            int rank, size;
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            MPI_Comm_size(MPI_COMM_WORLD, &size);
+        
+            const int delta = sourceSize / size;
+            const int remainder = sourceSize % size;
+        
+            std::vector<int> displaces(size), sendCounts(size);
+            int displacesCount = 0;
+        
+            for (int i = 0; i < size; i++) {
+                if (i < remainder)
+                    sendCounts[i] = delta + 1;
+                else
+                    sendCounts[i] = delta;
+        
+                 displaces[i] = displacesCount;
+                 displacesCount += sendCounts[i];
+            }
+        
+            std::vector<int> localVector(sendCounts[rank]);
+        
+            MPI_Scatterv(source.data(), sendCounts.data(), displaces.data(), MPI_INT,
+                localVector.data(), sendCounts[rank], MPI_INT, 0, MPI_COMM_WORLD);
+        
+            localVector = radixSortSigned(localVector);
+        
+            std::vector<int> procs(size);
+            for (int i = 0; i < static_cast<int>(procs.size()); i++)
+                procs[i] = i;
+        
+            int vecSize = 0;
+        
+            while (procs.size() > 1) {
+                vecSize = static_cast<int>(procs.size());
+                for (int i = vecSize - 1; i > (vecSize % 2); i -= 2) {
+                    if (rank == procs[i]) {
+                        int mergedSize = static_cast<int>(localVector.size());
+                        MPI_Send(&mergedSize, 1, MPI_INT, procs[static_cast<size_t>(i) - 1], 0, MPI_COMM_WORLD);
+        
+                        MPI_Send(localVector.data(), mergedSize, MPI_INT, procs[static_cast<size_t>(i) - 1], 0, MPI_COMM_WORLD);
+                    } else if (rank == procs[static_cast<size_t>(i) - 1]) {
+                        int mergeSize = 0;
+                        MPI_Status status;
+                        MPI_Recv(&mergeSize, 1, MPI_INT, procs[i], 0, MPI_COMM_WORLD, &status);
+        
+                        std::vector<int> mergeVector(mergeSize);
+                        MPI_Recv(mergeVector.data(), mergeSize, MPI_INT, procs[i], 0, MPI_COMM_WORLD, &status);
+        
+                        localVector = mergeVectors(localVector, mergeVector);
+                    }
+        
+                    procs.erase(procs.begin() + i);
+                }
+            }
+        
+            return localVector;
+        }
+\end{lstlisting}
+\begin{lstlisting}
+    // main.cpp
+    // Copyright 2020 Gushchin Artem
+    #include <mpi.h>
+    #include <gtest-mpi-listener.hpp>
+    #include <gtest/gtest.h>
+    #include <vector>
+    #include <algorithm>
+    #include "./radix_with_merge.h"
+    
+    TEST(RadixSortWithMergeMPI, Empty_Vector) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 0;
+    
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+    
+        if (procRank == 0) {
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+    
+            EXPECT_EQ(parallelResult, randomVector);
+            EXPECT_EQ(sequentalResult, randomVector);
+        }
+    }
+    
+    TEST(RadixSortWithMergeMPI, Ref_Size_1) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 1;
+    
+        if (procRank == 0) {
+            randomVector = { -758 };
+        }
+    
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+    
+        if (procRank == 0) {
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+    
+            EXPECT_EQ(parallelResult, randomVector);
+            EXPECT_EQ(sequentalResult, randomVector);
+        }
+    }
+    
+    TEST(RadixSortWithMergeMPI, Ref_Size_5) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 5;
+    
+        if (procRank == 0) {
+            randomVector = { 4, -2, -10, 5, -12 };
+        }
+    
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+    
+        if (procRank == 0) {
+            std::vector<int> reference = { -12, -10, -2, 4, 5 };
+    
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+    
+            EXPECT_EQ(parallelResult, reference);
+            EXPECT_EQ(sequentalResult, reference);
+        }
+    }
+    
+    TEST(RadixSortWithMergeMPI, Random_Size_97) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 97;
+    
+        if (procRank == 0) {
+            randomVector = generateRandomVector<int>(vectorSize);
+        }
+    
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+    
+        if (procRank == 0) {
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+    
+            std::sort(randomVector.begin(), randomVector.end());
+    
+            EXPECT_EQ(parallelResult, randomVector);
+            EXPECT_EQ(sequentalResult, randomVector);
+        }
+    }
+    
+    TEST(RadixSortWithMergeMPI, Random_Size_991) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 991;
+    
+        if (procRank == 0) {
+            randomVector = generateRandomVector<int>(vectorSize);
+        }
+    
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+    
+        if (procRank == 0) {
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+    
+            std::sort(randomVector.begin(), randomVector.end());
+    
+            EXPECT_EQ(parallelResult, randomVector);
+            EXPECT_EQ(sequentalResult, randomVector);
+        }
+    }
+    
+    TEST(RadixSortWithMergeMPI, Size_100000_With_Time) {
+        int procRank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+        std::vector<int> randomVector;
+    
+        const int vectorSize = 10000000;
+    
+        if (procRank == 0) {
+            randomVector = generateRandomVector<int>(vectorSize);
+        }
+    
+        auto parallelStart = MPI_Wtime();
+        std::vector<int> parallelResult = parallelRadixSort(randomVector, vectorSize);
+        auto parallelEnd = MPI_Wtime();
+    
+        if (procRank == 0) {
+            std::cout << "Parallel duration: " << parallelEnd - parallelStart << std::endl;
+    
+            auto seqStart = MPI_Wtime();
+            std::vector<int> sequentalResult = radixSortSigned(randomVector);
+            auto seqEnd = MPI_Wtime();
+    
+            std::cout << "Seq duration: " << seqEnd - seqStart << std::endl;
+    
+            std::sort(randomVector.begin(), randomVector.end());
+    
+            EXPECT_EQ(parallelResult, randomVector);
+            EXPECT_EQ(sequentalResult, randomVector);
+        }
+    }
+    
+    int main(int argc, char* argv[]) {
+        ::testing::InitGoogleTest(&argc, argv);
+        MPI_Init(&argc, &argv);
+    
+        ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+        ::testing::TestEventListeners &listeners =
+            ::testing::UnitTest::GetInstance()->listeners();
+    
+        listeners.Release(listeners.default_result_printer());
+        listeners.Release(listeners.default_xml_generator());
+    
+        listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+        return RUN_ALL_TESTS();
+    }
+\end{lstlisting}
+
+\end{document}
