@@ -1,0 +1,673 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (вертикальное разбиение). Ядро Гаусса 3x3.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381806-2 \\ Киселева А.С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+В настоящее время количество изображений растёт с огромной скоростью. Это обсуловлено доступностью необходимых технических средств. Следствием этого является проблема поиска, обработки и анализа необходимой информации. Одним из известных способов обработки изображения является размытие. Оно играет большую роль в современных областях компьютерной графики.Размытие позволяет устранить излишнюю детализацию, дефекты сканирования, царапины, пыль. Также размытые изображения лучше поддаются сжатию. При сохранении в формате JPEG графический файл имеет меньший размер. Различные техники размытия изображения доступны во всех современных графических редакторах. Размытие по Гауссу является одним из наиболее важных алгоритмов размытия изображений
+\par В данной лабораторной работе будет рассмотрена фильтрация изображения "фильтром Гаусса" с ядром Гаусса 3х3. Также будет рассмотрен один из способов распараллеливания этого фильтра для улучшения эффективности.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В данной лабораторной работе необходимо реализовать последовательную и паралелльную версии фильтра Гаусса с ядром Гаусса 3х3. При этом изображение должно иметь вертикальное разбиение.
+\par Для реализации параллельной версии необходимо использовать средства MPI, а проверки работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+В данном фильтре используется матрица свёртки. Это матрица коэффициентов, которая «умножается» на значение пикселей изображения для получения требуемого результата. Ядро Гаусса -это матрица, которая заполняется по нормальному (гауссовому) закону. Размер ядра зависит от выбранного радиуса.
+\par Алгоритм Фильтра Гаусса:
+\begin{itemize}
+\item Выбираем радиус ядра Гаусса.
+\item Формируем значения ядра.
+\item Выбираем пиксель исходного изображения и область вокруг него на расстоянии радиуса. Таким образом мы получаем квадратную матрицу, нечетной размерности.
+\item Значение каждого пикселя из этой области умножается на значение из соответствующей ячейки в ядре Гаусса. Полученные значения суммируются и передаются в новое значение пикселя.
+\end{itemize}
+\par Данный алгоритм применяется к каждому пикселю изображения.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+ Первый вариант, когда процессов больше чем строк:
+\par Самым первым шагом нужно определить какое количество строк ( в транспонированной матрице) нужно передавать каждому процессу. Для этого делим нацело количество строк матрицы на количество процессов, получаем значение переменной delta. Также остаток от деления записываем в переменную ost.
+\par Чтобы обработать delta строк процесс должен знать также и соседние пиксели.Поэтому процесс будет получать также дополнительно 1 или 2 соседних строк. А именно :
+\begin{itemize}
+\item Если обрабатывается крайняя строка исходного изображения, то отправляется  также и его одна соседняя строка.
+\item Иначе передаётся две дополнительные строки. Они являются крайними к обрабатываемым.
+\end{itemize}
+\par Остаточные сроки передаются нулевому процессу также с +1 строкой.Далее выполняются необходимые вычисления.
+\par Второй вариант, когда процессов больше чем строк:
+\parСоздается новый коммуникатор, который имеет количество процессов равное количеству строк. Тогда процессам передается 1 основная строка и +1 или +2 дополнительные.
+\par После завершения всех необходимых вычислений обработанные строки необходимо снова транспонировать, чтобы вернуть первоначальный вид изображению.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Пиксели изображения хранятся в виде матрицы. Для удобства и эффективности сначала нужно ее транспонировать, то есть строки сделать столбцами, а столбцы строками. Таким образом определенное количество пикселей будет непрерывно передаваться процессам.
+\par Функция транспонирования :
+\begin{lstlisting}
+std::vector<double> transp(const std::vector<double>& image, int str, int stlb);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, который содержит пиксели исходного изображения.
+\item число строк изображения.
+\item число столбцов изображения.
+\end{itemize}
+\par В данной лабораторной работе необходимо было использовать ядро Гаусса 3х3, поэтому в функциях по умолчанию установлен радиус равный единице. Последовательная функция фильтра Гаусса:
+\begin{lstlisting}
+std::vector<double> posled(const std::vector<double>& image, int xx, int xmax, int str, int stlb, int size_, int sigma);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, который содержит пиксели исходного изображения.
+\item начальная координата по оси х.
+\item конечная координата по оси х.
+\item количество строк изображения.
+\item количество столбцов изображения.
+\item количество пикселей в изображении.
+\item значение сигмы.
+\end{itemize}
+\par Для реализации данного фильтра используется функция, которая формирует ядро Гаусса размером 3х3:
+\begin{lstlisting}
+std::vector<double> yadro(int sigma);
+\end{lstlisting}
+\par В качестве входного параметра передается значение сигмы.
+\par Параллельная реализация фильтра Гаусса с ядром 3х3 реализована функцией:
+\begin{lstlisting}
+std::vector<double> parallel(const std::vector<double>& image, int str, int stlb, int sigma);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на вектор, который содержит пиксели исходного изображения.
+\item количество строк изображения.
+\item количество столбцов изображения.
+\item значение сигмы.
+\end{itemize}
+\newpage
+
+% Тестирование
+\section*{Тестирование}
+\addcontentsline{toc}{section}{Тестирование}
+Для подтверждения работоспособности и эффективности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+\par Данные тесты проверяют правильность выполнения всех функций, а также эффективность выполнения последовательного и параллельного метода.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Тестирования проводились на компьютере обладающим, следующими характеристиками:
+
+\begin{itemize}
+\item Процессор: Intel Core i3-6006U CPU, 2.00GHz,2 ядра, 4 потока;
+\item Оперативная память: 6 ГБ;
+\item ОС: Microsoft Windows 10 Домашняя для одного языка.
+\end{itemize}
+
+\par Проведем тест для матрицы 3004x2598 , где каждое число отвечает за значение одного пикселя. 
+\par Результаты :
+
+\begin{table}[!h]
+\caption{Результаты теста}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        &  0.329423       &  0.324756   &  0.00467      \\
+2        &  0.305071       &  0.267817   &  0.03725      \\
+3        &  0.294285       &  0.248502   &  0.045783      \\
+4        &  0.323337       &  0.254598   &  0.068739
+\end{tabular}
+\end{table}
+
+\par Для более точного определния эффективности кода проведем такой же тест на компьютере с характеристиками: Процессор: Intel Core i7-960, 3.60 GHz, 4 ядер,Оперативная память: 12 GB, DDR3,SSD накопитель PLextor px-128s3c (SATA 2), Windows 7 Professional 64-bit SP1.
+
+\begin{table}[!h]
+\caption{Результаты теста}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        & 0.17454          & 0.192339     & 0.00       \\
+2        & 0.183606         & 0.168104     & 0.015502      \\
+3        & 0.187193         & 0.148661     & 0.38532      \\
+4        & 0.185942         & 0.131945     & 0.053997     
+\end{tabular}
+\end{table}
+
+\par Теперь проведём тест на изображении размером 1000х800, где в каждой ячейке лежит 3 значения цвета: синий, зелёный и красный. Для данного теста цвета делятся на три массива в зависимости от цвета , следовательно алогритм выполняется 3 раза для каждого цвета.
+\newpage
+
+\begin{table}[!h]
+\caption{Результаты теста}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        & 15.3714          & 15.421     & 0,00      \\
+2        & 15.2416         &  9.09452     & 6.14708      \\
+3        & 15.6592         & 8.39944     & 7.25976       \\
+4        &  16.2904         &  7.28343   & 9.00697      
+\end{tabular}
+\end{table}
+
+\par Исходя из полученных данных, можно сделать вывод, что эффективность программы зависит от количества процессов. Также обработка трех массивов эффективнее, чем обработка одного крупного массива. Следовательно, паралельная реализация эффективнее работает на цветных изображениях. 
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В данной лабораторной работе были реализованы последовательная и параллельная версии Фильтра Гаусса с вертикальным разбиением. Также важно, что параллельная реализация является более эффективной, чем последовательная. Чтобы сделать выполнение параллельной программы еще эффективнее можно добавить еще процессов, которые будут выполняться одновременно.
+
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П. Теория и практика параллельных вычислений. – 2007. 
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{Korneev}
+Корнеев В. Д. Параллельное программирование в MPI //Новосибирск: Изд-во СО РАН. – 2000.
+\bibitem{Nixon}
+Mark S. Nixon and Alberto S. Aguado. Feature Extraction and Image Processing. — Academic Press.
+\bibitem{Nikulin}
+Никулин Е.А. Компьютерная графика. Модели и алгоритмы.
+\bibitem{Hern}
+Дональд Херн, М. Паулин Бейкер. Компьютерная графика и стандарт OpenGL = Computer Graphics with OpenGL.
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// vert_yadro_gauss.h
+
+// Copyright 2020 Kiseleva Anastasia
+#ifndef MODULES_TASK_3_KISELEVA_VERT_YADRO_GAUSS_VERT_YADRO_GAUSS_H_
+#define MODULES_TASK_3_KISELEVA_VERT_YADRO_GAUSS_VERT_YADRO_GAUSS_H_
+
+#include <vector>
+#include <random>
+#include <ctime>
+
+int check(int v, int max, int min);
+std::vector<double> random(int str, int stlb);
+std::vector<double> transp(const std::vector<double>& image, int str, int stlb);
+std::vector<double> yadro(int sigma);
+std::vector<double> posled(const std::vector<double>& image, int xx, int xmax, int str, int stlb, int size_, int sigma);
+std::vector<double> parallel(const std::vector<double>& image, int str, int stlb, int sigma);
+
+#endif  // MODULES_TASK_3_KISELEVA_VERT_YADRO_GAUSS_VERT_YADRO_GAUSS_H_
+
+
+\end{lstlisting}
+\begin{lstlisting}
+// vert_yadro_gauss.cpp
+
+// Copyright 2020 Kiseleva Anastasia
+#include <mpi.h>
+#include <vector>
+#include <random>
+#include <iostream>
+#include <ctime>
+#include <cmath>
+#include "../../../modules/task_3/kiseleva_vert_yadro_gauss/vert_yadro_gauss.h"
+
+int check(int v, int max, int min) {
+    if (v > max) {
+        return max;
+    } else {
+        if (v < min) {
+            return min;
+        }
+    }
+    return v;
+}
+
+std::vector<double> random(int str, int stlb) {
+    std::vector<double> res(str * stlb);
+    std::mt19937 gen;
+    gen.seed(static_cast<unsigned int>(time(0)));
+    for (int i = 0; i < str * stlb; i++)
+        res[i] = gen() % 256;
+    return res;
+}
+
+std::vector<double> transp(const std::vector<double>& image, int str, int stlb) {
+    std::vector<double> res(str * stlb);
+    for (int i = 0; i < str; i++) {
+        for (int j = 0; j < stlb; j++) {
+            res[i + j * str] = image[i * stlb + j];
+        }
+    }
+    return res;
+}
+
+std::vector<double> yadro(int sigma) {
+    double norma = 0;
+    std::vector<double> yadroo(9);
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            int idx = (i + 1) * 3 + (j + 1);
+            yadroo[idx] = exp(-(i * i + j * j) / (sigma * sigma));
+            norma += yadroo[idx];
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            yadroo[i * 3 + j] /= norma;
+        }
+    }
+    return yadroo;
+}
+
+std::vector<double> posled(const std::vector<double>& image, int xx, int xmax,
+    int str, int stlb, int size_, int sigma) {
+    double color = 0;
+    std::vector<double> res(size_);
+    std::vector<double> yadroo = yadro(sigma);
+    for (int x = xx; x < xmax; x++) {
+        for (int y = 0; y < stlb; y++) {
+            color = 0;
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    int idx = (i + 1) * 3 + j + 1;
+                    color += image[check(x + j, str - 1, 0) * stlb + check(y + i, stlb - 1, 0)] * yadroo[idx];
+                }
+            }
+            res[(x-xx) * stlb + y] = check(color, 255, 0);
+        }
+    }
+    return res;
+}
+
+std::vector<double> parallel(const std::vector<double>& image, int str, int stlb, int sigma) {
+    int size;
+    int rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Status status;
+    std::vector<double> res(str * stlb);
+    if (size > str - 1) {
+        MPI_Comm comm_world;
+        MPI_Group group_world;
+        comm_world = MPI_COMM_WORLD;
+        MPI_Comm_group(comm_world, &group_world);
+        int *members = new int[str];
+        for (int i = 0; i < str; i++) {
+            members[i] = i;
+        }
+        MPI_Group newworld;
+        MPI_Group_incl(group_world, str, members, &newworld);
+        MPI_Comm comm_newworld;
+        MPI_Comm_create(comm_world, newworld, &comm_newworld);
+        MPI_Group_rank(newworld, &rank);
+        int size_;
+        MPI_Group_size(newworld, &size_);
+        if (comm_newworld != MPI_COMM_NULL) {
+            int xx;
+            int r;
+            std::vector<double> local_res(stlb);
+            if ((rank == 0) || (rank == str - 1)) {
+                r = stlb * 2;
+            } else {
+                r = stlb * 3;
+                xx = 1;
+            }
+            std::vector<double> local(r);
+            if (rank == 0) {
+                xx = 0;
+            }
+            if (rank == str - 1) {
+                xx = 1;
+            }
+            if (rank == 0) {
+                for (int i = 0; i < stlb*2; i++) {
+                    local[i] = image[i];
+                }
+                for (int i = 1; i < size_ - 1; i++) {
+                    MPI_Send(image.data() + stlb *(i-1), stlb*3, MPI_DOUBLE, i, 0, comm_newworld);
+                }
+                MPI_Send(image.data() + stlb *(size_-2), stlb*2, MPI_DOUBLE, size_-1, 1, comm_newworld);
+            } else {
+                if (rank != size_ - 1) {
+                    MPI_Recv(local.data(), stlb*3, MPI_DOUBLE, 0, 0, comm_newworld, &status);
+                } else {
+                    MPI_Recv(local.data(), stlb*2, MPI_DOUBLE, 0, 1, comm_newworld, &status);
+                }
+            }
+            local_res = posled(local, xx, xx+1, r/stlb, stlb, stlb, sigma);
+            MPI_Gather(local_res.data(), stlb, MPI_DOUBLE, res.data(), stlb, MPI_DOUBLE, 0, comm_newworld);
+        }
+    } else {
+        if (size == 1) {
+            res = posled(image, 0, str, str, stlb, str*stlb, sigma);
+        } else {
+            int part = str / size;
+         int ost = str % size;
+         int r;
+         if (ost == 0) {
+             if ((rank == 0) || (rank == size - 1)) {
+                 r = stlb * (part + 1);
+             } else {
+                 r = stlb * (part + 2);
+             }
+         } else {
+             if (rank == 0) {
+                 r = stlb * (part + 1);
+             } else {
+                 r = stlb * (part + 2);
+             }
+         }
+            std::vector<double> local(r);
+            std::vector<double> local_res(stlb*part);
+            if (rank == 0) {
+                for (int i = 0; i < stlb*(part+1); i++) {
+                    local[i] = image[i];
+                }
+                if (ost == 0) {
+                    for (int i = 1; i < size - 1; i++) {
+                        MPI_Send(image.data() + stlb * (part - 1) + stlb * (i - 1)*part,
+                            stlb*(part + 2), MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+                    }
+                    MPI_Send(image.data() + stlb * (str - part - 1), stlb * (part + 1),
+                        MPI_DOUBLE, size - 1, 1, MPI_COMM_WORLD);
+                } else {
+                    for (int i = 1; i < size; i++) {
+                        MPI_Send(image.data() + stlb * (part - 1) + stlb * (i - 1)*part,
+                            stlb*(part + 2), MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+                    }
+                }
+            } else {
+                if (ost == 0) {
+                    if (rank != size - 1) {
+                        MPI_Recv(local.data(), stlb *(part + 2), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
+
+                    } else {
+                        MPI_Recv(local.data(), stlb *(part + 1), MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+                    }
+                } else {
+                    MPI_Recv(local.data(), stlb *(part + 2), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
+                }
+            }
+            if (rank == 0) {
+                local_res = posled(local, 0, part, part+1, stlb, stlb*part, sigma);
+            } else {
+                if (ost == 0) {
+                    if (rank == size - 1) {
+                        local_res = posled(local, 1, part + 1, part + 1, stlb, stlb*part, sigma);
+                    } else {
+                        local_res = posled(local, 1, part + 1, part + 2, stlb, stlb*part, sigma);
+                    }
+                } else {
+                    local_res = posled(local, 1, part + 1, part + 2, stlb, stlb*part, sigma);
+                }
+            }
+          MPI_Gather(local_res.data(), part*stlb, MPI_DOUBLE, res.data(), stlb*part, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+          if (rank == 0) {
+              if (ost != 0) {
+                  std::vector<double> lloc((ost+1)*stlb);
+                  std::vector<double> local_ress(ost *stlb);
+                  int f = 0;
+                  for (int i = (part * size - 1)*stlb; i < str*stlb; i++) {
+                      lloc[f] = image[i];
+                      f++;
+                  }
+                  local_ress = posled(lloc, 1, ost+1, ost+1, stlb, stlb*ost, sigma);
+
+                  for (int i = 0; i < stlb*ost; i++)
+                      res[part * size * stlb + i] = local_ress[i];
+              }
+          }
+        }
+    }
+    return res;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+
+// Copyright 2020 Kiseleva Anastasia
+#include <mpi.h>
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <iostream>
+#include "./vert_yadro_gauss.h"
+
+#define EPS 1e-5
+
+TEST(Parallel_random_matrix, 3004x2598) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int str = 3004;
+    int stlb = 2598;
+    std::vector<double> matrix(str*stlb);
+    matrix = random(str, stlb);
+    matrix = transp(matrix, str, stlb);
+    int tmp = str;
+    str = stlb;
+    stlb = tmp;
+    double s1 = MPI_Wtime();
+    std::vector<double> parallel_res = parallel(matrix, str, stlb, 5);
+    double f1 = MPI_Wtime();
+    if (rank == 0) {
+        double s2 = MPI_Wtime();
+        std::vector<double> posled_res = posled(matrix, 0, str, str, stlb, str*stlb, 5);
+        double f2 = MPI_Wtime();
+        for (int i = 0; i < stlb*str; i++) {
+            ASSERT_NEAR(parallel_res[i], posled_res[i], EPS);
+        }
+        std::cout << "Parallel: " << f1 - s1 << std::endl;
+        std::cout << "Sequence: " << f2 - s2 << std::endl;
+    }
+}
+
+TEST(Parallel_random_matrix, 884x728) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int str = 884;
+    int stlb = 728;
+    std::vector<double> matrix(str*stlb);
+    matrix = random(str, stlb);
+    matrix = transp(matrix, str, stlb);
+    int tmp = str;
+    str = stlb;
+    stlb = tmp;
+    double s1 = MPI_Wtime();
+    std::vector<double> parallel_res = parallel(matrix, str, stlb, 5);
+    double f1 = MPI_Wtime();
+    if (rank == 0) {
+        double s2 = MPI_Wtime();
+        std::vector<double> posled_res = posled(matrix, 0, str, str, stlb, str*stlb, 5);
+        double f2 = MPI_Wtime();
+        for (int i = 0; i < stlb*str; i++) {
+            ASSERT_NEAR(parallel_res[i], posled_res[i], EPS);
+        }
+        std::cout << "Parallel: " << f1 - s1 << std::endl;
+        std::cout << "Sequence: " << f2 - s2 << std::endl;
+    }
+}
+
+TEST(Parallel_random_matrix, 299x298) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int str = 299;
+    int stlb = 298;
+    std::vector<double> matrix(str*stlb);
+    matrix = random(str, stlb);
+    matrix = transp(matrix, str, stlb);
+    int tmp = str;
+    str = stlb;
+    stlb = tmp;
+    double s1 = MPI_Wtime();
+    std::vector<double> parallel_res = parallel(matrix, str, stlb, 5);
+    double f1 = MPI_Wtime();
+    if (rank == 0) {
+        double s2 = MPI_Wtime();
+        std::vector<double> posled_res = posled(matrix, 0, str, str, stlb, str*stlb, 5);
+        double f2 = MPI_Wtime();
+        for (int i = 0; i < stlb*str; i++) {
+            ASSERT_NEAR(parallel_res[i], posled_res[i], EPS);
+        }
+        std::cout << "Parallel: " << f1 - s1 << std::endl;
+        std::cout << "Sequence: " << f2 - s2 << std::endl;
+    }
+}
+
+TEST(Parallel_random_matrix, 30x15) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int str = 30;
+    int stlb = 15;
+    std::vector<double> matrix(str*stlb);
+    matrix = random(str, stlb);
+    matrix = transp(matrix, str, stlb);
+    int tmp = str;
+    str = stlb;
+    stlb = tmp;
+    double s1 = MPI_Wtime();
+    std::vector<double> parallel_res = parallel(matrix, str, stlb, 5);
+    double f1 = MPI_Wtime();
+    if (rank == 0) {
+        double s2 = MPI_Wtime();
+        std::vector<double> posled_res = posled(matrix, 0, str, str, stlb, str*stlb, 5);
+        double f2 = MPI_Wtime();
+        for (int i = 0; i < stlb*str; i++) {
+            ASSERT_NEAR(parallel_res[i], posled_res[i], EPS);
+        }
+        std::cout << "Parallel: " << f1 - s1 << std::endl;
+        std::cout << "Sequence: " << f2 - s2 << std::endl;
+    }
+}
+
+TEST(Parallel_random_matrix, 344x185) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int str = 344;
+    int stlb = 185;
+    std::vector<double> matrix(str*stlb);
+    matrix = random(str, stlb);
+    matrix = transp(matrix, str, stlb);
+    int tmp = str;
+    str = stlb;
+    stlb = tmp;
+    double s1 = MPI_Wtime();
+    std::vector<double> parallel_res = parallel(matrix, str, stlb, 5);
+    double f1 = MPI_Wtime();
+    if (rank == 0) {
+        double s2 = MPI_Wtime();
+        std::vector<double> posled_res = posled(matrix, 0, str, str, stlb, str*stlb, 5);
+        double f2 = MPI_Wtime();
+        for (int i = 0; i < stlb*str; i++) {
+            ASSERT_NEAR(parallel_res[i], posled_res[i], EPS);
+        }
+        std::cout << "Parallel: " << f1 - s1 << std::endl;
+        std::cout << "Sequence: " << f2 - s2 << std::endl;
+    }
+}
+
+int main(int argc, char *argv[]) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners &listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+
+\end{lstlisting}
+
+\end{document}
