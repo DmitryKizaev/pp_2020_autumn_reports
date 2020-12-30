@@ -1,0 +1,564 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+basicstyle=\footnotesize,
+keywordstyle=\color{blue}\ttfamily,
+stringstyle=\color{red}\ttfamily,
+commentstyle=\color{green}\ttfamily,
+morecomment=[l][\color{magenta}]{\#},
+tabsize=4,
+breaklines=true,
+breakatwhitespace=true,
+title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поразрядная сортировка для вещественных чисел (тип double) с простым слиянием.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381808-2 \\ Щелянскова Анастасия\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А.В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках данной лабораторной работы необходимо разработать программу, использующую поразрядную сортировку вещественных чисел и простое слияние для сортировки массива.Требуется реализовать как параллельную, так и линейную версию программы.Массив векторов генерируется в начале работы программы на нулевом процессе. По завершении выполнения программа выводит на консоль время работы линейной и параллельной версий программы в секундах (в линейной версии программы используется только поразрядная сортировка).
+\par
+На основе разработанной программы необходимо провести вычислительные эксперименты, сравнив время работы параллельного и последовательного алгоритмов на разных входных данных и разном количестве процессов, затем сделать вывод об эффективности параллельной версии.
+\par
+Также следует экспериментально проверить корректность разработанных версий алгоритма с помощью Google тестов и проиллюстрировать работу на реальных изображениях.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Каждый процесс сортирует полученную часть исходного массива с помощью поразрядной сортировки. Затем каждый процесс отправляет свою отсортированную часть массива всем
+остальным процессам (себе в том числе). Далее циклично происходит слияние. Сначала слияние происходит на половине процессов, затем на
+четверти и т.д. до того момента, пока не получим две отсортированные
+части, которые отсортируем слиянием на нулевом процессе
+\par
+
+В результате работы на нулевом процессе оказывается отсортированный
+массив. (Его уже нет смысла отсылать всем)
+\par
+
+Так как каждая сортировка слиянием требует выделения памяти на
+дополнительный массив, будем выделять массив максимальной необходимой
+длины для каждого процесса в самом начале работы программы, это уменьшит
+время работы программы.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Нулевой процесс поровну разделяет массив между всеми процессами (остаток
+равномерно распределяется между процессами). Затем каждый процесс
+линейно сортирует полученную часть массива с помощью поразрядной
+сортировки. Далее данные собираются на всех процессах, после чего,
+фактически по схеме биномиального дерева, где корнем является нулевой
+процесс, происходит простое слияние. После каждой итерации значения
+массива отправляются остальным процессам, количество процессов,
+участвующих в итерации сокращается вдвое
+\par
+
+Для написания параллельной программы используется библиотека MS-MPI.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа реализована в radix\_sort\_double\_simple\_merge.cpp
+\par
+
+radix\_sort\_double\_simple\_merge.h
+\par
+
+Тесты main.cpp
+\par
+
+Функции:\par
+
+getRandomVector - функция,
+генерирующая вектор, заполненный случайными значениями.
+\par
+
+bubbleSort - функция сортировки пузырьком, нужна для того чтобы в тестах
+удобнее было сортировать тестовые массивы.
+\par
+
+numberOfPositiveRadix - функция получения кол-ва положительных разрядов
+в числе.
+\par
+
+numberOfNegativeRadix - функция получения кол-ва отрицательных разрядов
+в числе.
+\par
+
+merge - функция слияния двух отсортированных массивов.
+\par
+
+getDigit - функция получения цифры из указанного разряда числа.
+\par
+
+radixSort - функция сортировки чисел по указанному разряду.
+\par
+
+linearRadixSort - функция линейной поразрядной сортировки.
+\par
+
+parallelRadixSort - функция параллельной сортировки.
+\par
+
+Массивы и переменные:
+\par
+
+num- количество процессов
+\par
+
+rank - номер текущего процесса
+\par
+
+size - размер массива
+\par
+
+start - переменная для счета времени
+\par
+
+end - переменная для счета времени
+\par
+
+gen - переменная для генерирования случайных значений массива
+\par
+
+vec - сортируемый массив
+\par
+
+vec\_left - куски сортируемого массива
+\par
+
+vec\_right - куски сортируемого массива
+\par
+
+tmp - вспомогательный массива для сортировки с несчетными процессами
+\newpage
+
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе реализована линейная и
+параллельная версия. Показано время, с которым работает линейная и
+параллельная версии, также результаты можно вывести и сравнить
+результаты сортировок (при больших размерах массивов это делать
+нецелесообразно )\\
+Кроме этого запоминается отсортированный массив на линейной версии и
+сравнивается с сортировкой на параллельной, после это выдается сообщение
+о том, что ошибки нет, или о том, что найдены не одинаковые элементы
+\newpage
+% Описание экспериментов
+
+\section*{Описание экспериментов}
+\addcontentsline{toc}{section}{Описание экспериментов}
+Эксперименты проводились на 4-х ядерном компьютере с операционной системой – Windows 10, который имеет 8 логических процессоров. Результаты экспериментов приведены в таблице:
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Размер & Количество процессов & Паралл. время & Послед. время\\
+10000 & 4 & 0.811 & 0.739 \\
+10000 & 6 & 0.79 & 0.89 \\
+10000 & 8 & 0.8 & 1.050 \\
+
+\end{tabular}
+\end{table}
+\par
+По результатам эксперимента, можно сделать вывод о том, что параллельная версия работает примерно одинаково с последовательной. 
+\par
+Kорректность работы программы могут результаты гугл-тестов.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Мы не получили большого ускорения за счет распараллеливания программы.\\
+Это могло произойти из-за того, что сортировка слиянием работает
+недостаточно быстро
+
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{parallel} Parallel: Лаборатория Параллельных информационных технологий НИВЦ МГУ [Электронный ресурс] // URL: \url {https://parallel.ru/vvv/mpi.html} (дата обращения: 28.11.2020)
+\bibitem{Algolist} Algolist: Алгоритмы, методы, исходники [Электронный ресурс] // URL: \url {http://algolist.manual.ru/sort/radix_sort.php} (дата обращения: 28.11.2020)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+						// main.cpp
+
+// Copyright 2020 Schelyanskova Anastasia
+#ifndef MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#define MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#include <vector>
+
+
+std::vector<double> getRandomVector(int size);
+
+std::vector<double> bubbleSort(const std::vector<double>& vec);
+
+int numberOfPositiveRadix(int num);
+
+int numberOfNegativeRadix(double num);
+
+int getDigit(double num, int discharge);
+
+std::vector<double> merge(const std::vector<double>& vec1, const std::vector<double>& vec2);
+ 
+std::vector<double> linearRadixSort(const std::vector<double>& vect);
+ 
+std::vector<double> radixSort(const std::vector<double>& vect, int radix);
+
+std::vector<double> parallelRadixSort(const std::vector<double>& vect);
+
+#endif  // MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+\end{lstlisting}
+\begin{lstlisting}
+						// radix_sort_double_simple_merge.h
+
+// Copyright 2020 Schelyanskova Anastasia
+#ifndef MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#define MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#include <vector>
+
+
+std::vector<double> getRandomVector(int size);
+
+std::vector<double> bubbleSort(const std::vector<double>& vec);
+
+int numberOfPositiveRadix(int num);
+
+int numberOfNegativeRadix(double num);
+
+int getDigit(double num, int discharge);
+
+std::vector<double> merge(const std::vector<double>& vec1, const std::vector<double>& vec2);
+
+std::vector<double> linearRadixSort(const std::vector<double>& vect);
+
+std::vector<double> radixSort(const std::vector<double>& vect, int radix);
+
+std::vector<double> parallelRadixSort(const std::vector<double>& vect);
+
+#endif  // MODULES_TASK_3_SCHELYANSKOVA_A_SORT_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+						// radix_sort_double_simple_merge.cpp
+
+// Copyright 2020 Schelyanskova Anastasia
+
+#include "../../../modules/task_3/schelyanskova_a_sort/radix_sort_double_simple_merge.h"
+
+#include <mpi.h>
+
+#include <ctime>
+#include <iostream>
+#include <random>
+#include <vector>
+#include <list>
+#include <utility>
+#include <string>
+#include <algorithm>
+
+using std::vector;
+using std::cout;
+using std::endl;
+using std::list;
+using std::to_string;
+
+vector<double> getRandomVector(int size) {
+    vector<double> vec(size);
+    std::mt19937 gen;
+    gen.seed(static_cast<unsigned char>(time(0)));
+    for (int i = 0; i < size; i++) {
+        vec[i] = gen() / 10000;
+    }
+    return vec;
+}
+
+vector<double> bubbleSort(const std::vector<double>& vec) {
+    std::vector<double> sorted(vec);
+    for (int i = 0; i < static_cast<int>(sorted.size()); i++) {
+        for (int j = i; j < static_cast<int>(sorted.size()); j++) {
+            if (sorted[i] > sorted[j]) {
+                std::swap(sorted[i], sorted[j]);
+            }
+        }
+    }
+    return sorted;
+}
+
+int numberOfPositiveRadix(int num) {
+    int num_of_radix = 0;
+    while (num> 0) {
+        num /= 10;
+        num_of_radix++;
+    }
+    return num_of_radix;
+}
+
+int numberOfNegativeRadix(double num) {
+    std::string str_num = to_string(num);
+    if (str_num.find('.')) {
+        return -(static_cast<int>(str_num.find('.')) - static_cast<int>(str_num.size())) - 1;
+    } else {
+        return 0;
+    }
+}
+
+vector<double> merge(const vector<double>& vec_left, const vector<double>& vec_right) {
+    std::vector<double> result((vec_left.size() + vec_right.size()));
+
+    int i = 0, j = 0, k = 0;
+    while (i < static_cast<int>(vec_left.size()) && j < static_cast<int>(vec_right.size())) {
+        if (vec_left[i] < vec_right[j])
+            result[k] = vec_left[i++];
+        else
+            result[k] = vec_right[j++];
+        k++;
+    }
+    while (i < static_cast<int>(vec_left.size())) {
+        result[k++] = vec_left[i++];
+    }
+    while (j < static_cast<int>(vec_right.size())) {
+        result[k++] = vec_right[j++];
+    }
+
+    return result;
+}
+
+int getDigit(double num, int radix) {
+    if (radix > 0) {
+        double mask = pow(10, radix);
+        double tmp = num / mask;
+        return static_cast<int>(tmp) % 10;
+    }
+    return uint64_t(num * pow(10, -radix)) % 10;
+}
+
+std::vector<double> radixSort(const std::vector<double>& vect, int rad) {
+    vector<double> res;
+    vector<list<double>> radix(10);
+    for (auto i = radix.begin(); i < radix.end(); i++) {
+        (*i) = list<double>();
+    }
+    for (int i = 0; i < static_cast<int>(vect.size()); i++) {
+        radix[getDigit(vect[i], rad)].push_back(vect[i]);
+    }
+    for (auto vect : radix) {
+        for (auto element : vect) {
+            res.push_back(element);
+        }
+    }
+    return res;
+}
+
+std::vector<double> linearRadixSort(const std::vector<double>& vect) {
+    int radixNegativeZero = 0;
+    int maxRadixNegativeZero = numberOfNegativeRadix(vect[0]);
+    for (auto element : vect) {
+        radixNegativeZero = numberOfNegativeRadix(element);
+        if (radixNegativeZero > maxRadixNegativeZero) {
+            maxRadixNegativeZero = radixNegativeZero;
+        }
+    }
+    double max = vect[0];
+    for (int i = 1; i < static_cast<int>(vect.size()); i++) {
+        if (vect[i] > max) {
+            max = vect[i];
+        }
+    }
+    int maxRadixPositiveZero = numberOfPositiveRadix(max);
+    vector<double> result(vect);
+    for (int i = -maxRadixNegativeZero; i <= maxRadixPositiveZero; i++) {
+        result = radixSort(result, i);
+    }
+    return result;
+}
+
+std::vector<double> parallelRadixSort(const std::vector<double>& vect) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if ((size == 1) || (static_cast<int>(vect.size()) < size)) {
+        if (rank == 0) {
+            return linearRadixSort(vect);
+        }
+        return vector<double>();
+    }
+
+    vector<double> local_vect;
+
+    int num_of_local_numbers = static_cast<int>(vect.size()) / size;
+    int count = num_of_local_numbers;
+    if (rank == 0) {
+        int begin;
+        local_vect = vector<double>(num_of_local_numbers);
+        std::copy(vect.begin(), vect.begin() + num_of_local_numbers, local_vect.begin());
+
+        for (int process_num = 1; process_num < size; process_num++) {
+            begin = num_of_local_numbers * process_num;
+            if (process_num == size - 1) {
+                count = static_cast<int>(vect.size()) - begin;
+            }
+            MPI_Send(&vect[0] + num_of_local_numbers * process_num, count,
+                MPI_DOUBLE, process_num, 0, MPI_COMM_WORLD);
+        }
+        count = num_of_local_numbers;
+    } else {
+        MPI_Status st;
+        if (rank == size - 1) {
+            count = static_cast<int>(vect.size()) - num_of_local_numbers * (size - 1);
+        }
+        local_vect = vector<double>(count);
+        MPI_Recv(&local_vect[0], count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &st);
+    }
+    vector<double> result = linearRadixSort(local_vect);
+
+    vector<int> active_process(size);
+    vector<int> process_deltas_map(size);
+    for (int i = 0; i < size - 1; i++) {
+        active_process[i] = i;
+        process_deltas_map[i] = num_of_local_numbers;
+    }
+    active_process[size - 1] = size - 1;
+    process_deltas_map[size - 1] = static_cast<int>(vect.size())
+        - num_of_local_numbers * (size - 1);
+
+    while (static_cast<int>(active_process.size()) > 1) {
+        int index_of_cur_process = std::find(active_process.begin(), active_process.end(), rank)
+            - active_process.begin();
+
+        if ((index_of_cur_process == static_cast<int>(active_process.size()) - 1) &&
+            (static_cast<int>(active_process.size()) % 2)) {
+            vector<int> tmp_active_proc;
+            vector<int> tmp_process_deltas_map;
+            for (int i = 0; i < static_cast<int>(active_process.size()) - 1; i += 2) {
+                tmp_active_proc.push_back(active_process[i]);
+                tmp_process_deltas_map.push_back(process_deltas_map[i]);
+            }
+            tmp_active_proc.push_back(active_process[index_of_cur_process]);
+            tmp_process_deltas_map.push_back(process_deltas_map[index_of_cur_process]);
+
+            for (int i = 0; i < static_cast<int>(tmp_active_proc.size()); i++) {
+                if (tmp_active_proc[i] != rank) {
+                    tmp_process_deltas_map[i] *= 2;
+                }
+            }
+            active_process = tmp_active_proc;
+            process_deltas_map = tmp_process_deltas_map;
+            continue;
+        }
+        if (index_of_cur_process % 2 == 1) {
+            MPI_Send(&result[0], count, MPI_DOUBLE, active_process[index_of_cur_process - 1], 0,
+                MPI_COMM_WORLD);
+            return vector<double>();
+        } else {
+            MPI_Status st;
+
+            vector<double> tmp(process_deltas_map[index_of_cur_process + 1]);
+            MPI_Recv(&tmp[0], process_deltas_map[index_of_cur_process + 1], MPI_DOUBLE,
+                active_process[index_of_cur_process + 1], 0, MPI_COMM_WORLD, &st);
+
+            result = merge(result, tmp);
+            count = static_cast<int>(result.size());
+
+            vector<int> tmp_active_proc;
+            vector<int> tmp_process_deltas_map;
+            for (int i = 0; i < static_cast<int>(active_process.size()) - 1; i += 2) {
+                tmp_active_proc.push_back(active_process[i]);
+                tmp_process_deltas_map.push_back(process_deltas_map[i] + process_deltas_map[i + 1]);
+            }
+
+            if ((static_cast<int>(active_process.size()) % 2)) {
+                tmp_active_proc.push_back(active_process[static_cast<int>(active_process.size()) - 1]);
+                tmp_process_deltas_map.push_back(process_deltas_map[static_cast<int>(active_process.size()) - 1]);
+            }
+
+            active_process = tmp_active_proc;
+            process_deltas_map = tmp_process_deltas_map;
+        }
+    }
+    if (rank == 0) {
+        return result;
+    }
+    return vector<double>();
+}
+\end{lstlisting}
+    \end{document}
