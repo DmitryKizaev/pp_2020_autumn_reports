@@ -1,0 +1,699 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение плотных матриц. Блочная схема, алгоритм Фокса»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-3 \\ Макарычев С. Д.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Матричное умножение является одной из существенных проблем в матричных
+вычислениях, так влечет за собой выполнение большёго количества операций. Умножение матрицы {\itshape A} размера {\itshape $n \times n$} и матрицы {\itshape B} размера {\itshape $n \times n$} приводит к получению матрицы {\itshape C} размера {\itshape $n \times n$}, каждый элемент которой определяется в соответствии с выражением:
+\par$$
+    c_{ij} = \sum_{k=0}^{n-1} a_{ik} * b_{kj},\qquad 0 \le n,j \le n \qquad
+    $$
+
+Из этой формулы не трудно видеть, что умножение матриц требует выполнения относительно большого количества операций, а именно - $n^3$ скалярных умножений и сложений. Это очень сильно сказывается на эффективности программ, реализующих операцию матричного умножения. Таким образом, возникает необходимость распараллеливания вычислений.
+\par При построении параллельных способов выполнения матричного умножения наряду с
+рассмотрением матриц в виде наборов строк и столбцов широко используется блочное
+представление матриц. При таком подходе матрицы-операнды {\itshape A}, {\itshape B} и результирующая
+матрица {\itshape C} рассматриваются как набор блоков. 
+\par Одним из основных методов параллельного умножения матриц, использующих блочное
+распределение данных между процессами, является алгоритм Фокса. Он и будет подробно
+рассмотрен в данной лабраторной работе.
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Пусть даны две квадратные матрицы {\itshape $A$}, {\itshape $B$} размера {\itshape $n \times n$} с элементыами типа double. В данной работе нужно реализовать умножение этих матриц, использовав последовательный алгоритм и параллельную реализацию алгоритма Фокса. Также нужно проверить корректность работы обеих реализаций, сравнить время их работы и сделать выводы об эффективносте использования параллельной реализации умножения квадратных матриц.
+
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+В данном алгоритме матрицы разбиваются на блоки, представляющие собой подматрицы исходных матриц. Матрицы {\itshape A}, {\itshape $B$} и {\itshape $C$} являются квадратными размера {\itshape $N  \times N$}, а количество блоков по горизонтали и по вертикали является одинаковым и равным {\itshape $q$}, где  {\itshape $q = \sqrt p$}, {\itshape $p$} - количество запускаемых процессов. Размер всех блоков равен {\itshape $k \times k$}, {\itshape $k = \frac{N}{q} $}. В этом случае операция матричного умножения может быть представлена в блочном виде:
+$$
+\begin{bmatrix}
+A_{00}&  \ldots & A_{0q-1}\\
+& \ldots\\
+A_{q-10}& \ldots & A_{q-1q-1}
+\end{bmatrix}
+*
+\begin{bmatrix}
+B_{0 0}& \ldots & B_{0 q-1}\\
+& \ldots\\
+B_{q-1 0}& \ldots & B_{n-1 q-1}
+\end{bmatrix}
+=
+\begin{bmatrix}
+C_{0 0}& \ldots & C_{0q-1}\\
+&\ldots\\
+C_{q-1 0}& \ldots & C_{q-1 q-1}
+\end{bmatrix}
+$$
+
+Все блоки $C_{ij}$ матрицы {\itshape $C$} определяются как произведение соответствующих блоков матриц {\itshape $A$} и {\itshape $B$}:
+\par$$
+    C_{ij} = \sum_{s=0}^{q-1} A_{is} * B_{sj},\qquad 0 \le i,j \le n \qquad
+    $$
+\par При блочном разбиении данных  свяжим с каждым процессом задачу вычисления одного из блоков результирующей матрицы {\itshape $C$}. В таком случае процессу должны быть доступны все элементы соответствующих строк матрицы {\itshape $A$} и столбцов матрицы {\itshape $B$}. Так как размещение всех требуемых данных в каждом процессе приведет к их дублированию и существенному увеличению объема используемой памяти, необходимо организовать вычисления таким образом, чтобы в каждый момент времени процессы содержали лишь по одному блоку матриц A и B, требуемому для расчетов, а доступ к остальным блокам обеспечивался бы при помощи передачи сообщений.
+\par Таким образом, в ходе вычислений на каждой базовой подзадаче {\itshape $(i,j)$} для эффективной работы алгоритма Фокса должно находиться четыре матричных блока:
+\begin{enumerate} 
+  \item блок {\itshape $A_{ij}$} матрицы {\itshape $A$}, который размещается в подзадаче перед началом вычислений.
+  \item блоки {\itshape $A_{ij}^{'}$ , $B_{ij}^{'}$}, получаемые подзадачей в ходе выполнения пересылок блоков.
+  \item блок {\itshape $C_{ij}$}, в которм должны находиться результаты вычисления.
+\end{enumerate}
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+В данном алгоритме для процессов удобно ввести двумерную декартову топологию, сопоставив каждому процессу его координаты {\itshape $(i,j)$} в этой топологии. При этом предполагается, что количество процессов равно $q^2$.
+\begin{enumerate}
+    \item Распределение блоков между процессами:
+    \begin{itemize}
+        \item Этап инициализации:
+        \par Производится рассылка в процесс с координатами {\itshape $(i,j)$} блоков {\itshape $A_{ij}, B_{ij}$},  исходных матриц. Кроме того, выполняется обнуление матрицы {\itshape $C_{ij}$}, предназначенной для хранения соответствующего блока результирующего произведения {\itshape $A  \times B$}.
+        \item Затем запускается цикл по {\itshape $m$} от {\itshape $0$} до {\itshape $q - 1$} , в ходе которого выполняются три действия:
+         \begin{itemize}
+            \item для каждой строки {\itshape $i$}, {\itshape $0 \le i \le q$} блок {\itshape $A_{ij}$} одного из процессов пересылается во все процессы этой же строки; при этом индекс {\itshape $j$} пересылаемого блока определяется по формуле:
+                 $$
+                {\mathit j = (i + l) \, mod \, q,}
+                $$
+            \item полученный в результате подобной пересылки блок матрицы {\itshape $A$} и содержащийся в процессе {\itshape $(i,j)$} блок матрицы {\itshape $B$} перемножаются, и результат прибавляется к матрице {\itshape $C_{ij}$}; 
+            \item для каждого столбца {\itshape $j$}, {\itshape $0 \le j \le q - 1$} выполняется циклическая пересылка блоков матрицы {\itshape $B$}, содержащихся в каждом процессе {\itshape $(i,j)$} этого столбца, в направлении убывания номеров строк.
+        \end{itemize}
+    \parПосле завершения цикла в каждом процессе будет содержаться матрица {\itshape $C_{ij}$}, равная соответствующему блоку произведения {\itshape $A  \times B$}. Останется переслать эти блоки главному процессу.
+    \end{itemize}
+    \item Определение количества блоков.
+    \parВ рассмотренной схеме параллельных вычислений количество блоков может варьироваться в зависимости от выбора размера блоков. Эти размеры могут быть подобраны таким образом, чтобы общее количество базовых подзадач совпадало с числом процессоров {\itshape $p$}. Таким образом, число процессов должно являться полным квадратом некоторого целого числа, а количество блоков в матрицах по вертикали и горизонтали будет равно корню квадратному из числа процессов. Такой способ определения количества блоков приводит к тому, что объем вычислений в каждой подзадаче является одинаковым и тем самым достигается полная балансировка вычислительной нагрузки между процессорами.
+\end{enumerate}
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Рассмотрим основные моменты программной реализации параллельного алгоритма Фокса.
+\par Описание глобальных переменных:
+\begin{itemize}
+    \item коммуникатор решетки:
+    \begin{lstlisting}
+        MPI_Comm GridComm
+    \end{lstlisting}
+    \item коммуникаторы столбцов:
+     \begin{lstlisting}
+        MPI_Comm ColComm
+    \end{lstlisting}
+    \item коммуникаторы строк:
+     \begin{lstlisting}
+        MPI_Comm RowComm
+    \end{lstlisting}
+\end{itemize}
+\par Описание методов:
+\begin{itemize}
+    \item Функция для генерации вектора с помощью Вихря Мерсенна
+    \begin{lstlisting}
+        std::vector<double> getRandomMatrix(int orderM)
+    \end{lstlisting}
+    \par На вход принимается порядок матрицы, на выходе получаем сгенированную матрицу данного порядка.
+    \item Создание виртуальной топологии
+     \begin{lstlisting}
+        void createGridCommunicators(int gridSize, int ProcRank, int* gridCoords);
+    \end{lstlisting}
+    \par На вход принимается количество блоков по вертикали и диагонали, ранг процесса и координаты процесса в двочной решетке.
+    \item Функция для сравнения двух матриц
+     \begin{lstlisting}
+        bool compareMat(const std::vector<double>& matA, const std::vector<double>& matB);
+    \end{lstlisting}
+    \par В качестве входных параметров передаются константные ссылки на матрицы {\itshape $A, B$}. В качестве выходных данных значение типа \verb|bool|.
+    \item Функция для умножения блоков двух матриц
+     \begin{lstlisting}
+        void BlockMult(double* pAblock, double* pBblock, double* pCblock, int blockSize);
+    \end{lstlisting}
+    \par В качестве входных параметров передаются константные указатели на блоки матриц {\itshape $A, B, C$} и размер этих блоков.
+     \item Основная функция, реализующая алгоритм Фокса
+     \begin{lstlisting}
+        std::vector<double> foxsAlgorithm(const std::vector<double>& matA, const std::vector<double>& matB, int orderM);
+    \end{lstlisting}
+    \par В качестве входных параметров передаются константные ссылки на матрицы {\itshape $A, B$} и порядок этих матриц, на выходе получаем матрицу, образованную в результате умножения.
+    \item Последовательное алгоритм перемножения матриц
+     \begin{lstlisting}
+        std::vector<double> seqMult(const std::vector<double>& matA, const std::vector<double>& matB, int size);
+    \end{lstlisting}
+    \par В качестве входных параметров передаются константные ссылки на матрицы {\itshape $A, B$} и размер этих матриц, на выходе получаем матрицу, образованную в результате умножения.
+\end{itemize}
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью Google Testing Framework.
+\par Набор представляет из себя тесты, которые проверяют корректность входных данных (количество процессов должно быть полным квадаратом целого числа); корректность вычислений (полученный в результате выполнения параллельного алгоритма вектор сравнивается с полученным благодаря последовательнуму алгоритму вектором); а также эффективность (вычисление времени, занимаемое последовательным и параллельным алгоритмом, и сравнение полученных данных).
+\par Успешное прохождение всех тестов подтверждает корректность работы написанной программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельного алгоритма Фокса были проведены на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel Core i3-9100F, 3.60 GHz, 4 ядра;
+\item Оперативная память: 16,0 ГБ (DDR4);
+\item ОС: Майкрософт Windows 10 Pro 64-bit.
+\end{itemize}
+
+\par В рамках эксперимента было вычислено время работы параллельного
+и последовательно алгоритмов умножения квадратных матриц {\itshape $A$} и {\itshape $B$} на 4, 9 и 16 процессах. Размеры матриц в эксперименте: \verb|300| , \verb|1500| и \verb|2200|.
+\par Результаты экспериментов представлены ниже.
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 300}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Эффективность  \\
+4        & 0.590014         & 0.0205885     & 28.6575       \\
+9        & 0.590014         & 0.0741198     & 7.96       \\
+16       & 0.590014         & 0.167905     & 3.514       
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 1500}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Эффективность  \\
+4        & 87.435         & 5.60533     & 15.5986       \\
+9        & 87.435         & 4.01173     & 21.795       \\
+16       & 87.435         & 3.64522     & 23.99       
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 2200}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Эффективность  \\
+4        & 285.433         & 14.1073     & 20.233       \\
+9        & 285.433         & 18.521     & 15.411       \\
+16       & 285.433         & 16.1584     & 17.665       
+\end{tabular}
+\end{table}
+
+
+\par По данным, полученным в результате проведения эксперимента, мы видим, что параллельный алгоритм Фокса работает намного эффективнее, чем последовательный алгоритм умножения матриц. Наибольшая эффективность достигается при
+сравнительно большом размере матриц. Чтобы достичь наибольшей эффективности, размер матрицы и количество процессов длжны быть прямо пропорциональны друг другу.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы был реализован параллельный алгоритм Фокса.
+\par По данным экспериментов удалось сравнить время работы параллельного и последовательного алгоритма умножения матриц. В результате чего было выявлено, что параллельный алгоритм Фокса показывает высокую эффективность на достаточно большом объеме данных. Но для достижения большей эффективности число процессов должно быть прямо пропорционально размеру перемножаемых матриц.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{intuit} Национальный Открытый Университет «ИНТУИТ». Академия: Интернет Университет Суперкомпьютерных Технологий. Курс: Теория и практика параллельных вычислений. Автор: Виктор Гергель. ISBN: 978-5-9556-0096-3. // URL: \url {https://intuit.ru/studies/courses/1156/190/lecture/4954?page=3} (дата обращения: 29.11.2020)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В этом разделе находится весь код, написанный в рамках лабораторной работы.
+\begin{lstlisting}
+// foxes_algorithm.h
+
+// Copyright 2020 Makarychev Sergey
+#ifndef  MODULES_TASK_3_MAKARYCHEV_S_FOXES_ALGORITHM_FOXES_ALGORITHM_H_
+#define  MODULES_TASK_3_MAKARYCHEV_S_FOXES_ALGORITHM_FOXES_ALGORITHM_H_
+#include <iostream>
+#include <vector>
+
+std::vector<double> getRandomMatrix(int orderM);
+void BlockMult(double* pAblock, double* pBblock, double* pCblock, int blockSize);
+std::vector<double> seqMult(const std::vector<double>& matA, const std::vector<double>& matB, int size);
+std::vector<double> foxsAlgorithm(const std::vector<double>& matA, const std::vector<double>& matB, int orderM);
+bool compareMat(const std::vector<double>& matrixA, const std::vector<double>& matrixB);
+
+#endif  //  MODULES_TASK_3_MAKARYCHEV_S_FOXES_ALGORITHM_FOXES_ALGORITHM_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+// foxes_algorithm.cpp
+
+// Copyright 2020 Makarychev Sergey
+#include "../../../modules/task_3/makarychev_s_foxes_algorithm/foxes_algorithm.h"
+#include <mpi.h>
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <vector>
+#include <limits>
+#include <ctime>
+#include <cmath>
+
+MPI_Comm GridComm;
+MPI_Comm ColComm;
+MPI_Comm RowComm;
+
+std::vector<double> getRandomMatrix(int orderM) {
+  int sizeM = orderM * orderM;
+  if (sizeM < 0)
+    throw "Wrong matrix size";
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> urd(-100, 100);
+  std::vector<double> randV(sizeM);
+  for (int i = 0; i < sizeM; i++) {
+      randV[i] = urd(gen);
+  }
+  return randV;
+}
+
+bool compareMat(const std::vector<double>& matA, const std::vector<double>& matB) {
+    for (size_t i = 0; i < matA.size(); i++) {
+        if ((std::fabs(matA[i] - matB[i]) >= std::numeric_limits<double>::epsilon() * 1000000000.0))
+            return false;
+    }
+    return true;
+}
+
+std::vector<double> seqMult(const std::vector<double>& matA, const std::vector<double>& matB, int size) {
+    if (size < 0 || matA.size() != matB.size())
+        throw "Wrong matrix size";
+    std::vector<double> matC(size * size);
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            double tmp = 0;
+            for (int k = 0; k < size; k++) {
+                tmp += matA[i * size + k] * matB[k * size + j];
+            }
+            matC[i * size + j] += tmp;
+        }
+    }
+    return matC;
+}
+
+void createGridCommunicators(int gridSize, int ProcRank, int* gridCoords) {
+    std::vector<int> dimSize(2, gridSize);
+    std::vector<int> periodic(2, 0);
+    std::vector<int> subdims(2);
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dimSize.data(), periodic.data(), 0, &GridComm);
+    MPI_Cart_coords(GridComm, ProcRank, 2, gridCoords);
+    subdims[0] = 0;
+    subdims[1] = 1;
+    MPI_Cart_sub(GridComm, subdims.data(), &RowComm);
+    subdims[0] = 1;
+    subdims[1] = 0;
+    MPI_Cart_sub(GridComm, subdims.data(), &ColComm);
+}
+
+
+void BlockMult(double* pAblock, double* pBblock, double* pCblock, int blockSize) {
+    for (int i = 0; i < blockSize; i++) {
+        for (int j = 0; j < blockSize; j++) {
+            double tmp = 0;
+            for (int k = 0; k < blockSize; k++)
+                tmp += pAblock[i * blockSize + k] * pBblock[k * blockSize + j];
+            pCblock[i * blockSize + j] += tmp;
+        }
+    }
+}
+std::vector<double> foxsAlgorithm(const std::vector<double>& matA, const std::vector<double>& matB, int orderM) {
+    if (orderM < 0)
+        throw "Wrong matrix size";
+    int ProcNum, ProcRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    MPI_Status status;
+    int gridSize = sqrt(ProcNum);
+    if (gridSize * gridSize != ProcNum)
+        throw "Wrong number of processes";
+    std::vector<int> gridCoords(2);
+    createGridCommunicators(gridSize, ProcRank, gridCoords.data());
+    int blockSize;
+    if (ProcRank == 0) {
+        blockSize = orderM / gridSize;
+    }
+    MPI_Bcast(&blockSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    std::vector<double> blockA(blockSize * blockSize);
+    std::vector<double> blockB(blockSize * blockSize);
+    std::vector<double> blockC(blockSize * blockSize, 0);
+    if (ProcRank == 0) {
+        for (int i = 0; i < blockSize; i++) {
+            for (int j = 0; j < blockSize; j++) {
+                blockA[i * blockSize + j] = matA[i * orderM + j];
+                blockB[i * blockSize + j] = matB[i * orderM + j];
+            }
+        }
+    }
+    MPI_Datatype BlockMat;
+    MPI_Type_vector(blockSize, blockSize, blockSize * gridSize, MPI_DOUBLE, &BlockMat);
+    MPI_Type_commit(&BlockMat);
+    if (ProcRank == 0) {
+        for (int p = 1; p < ProcNum; p++) {
+            MPI_Send(matA.data() + (p % gridSize) * blockSize + (p / gridSize) * orderM * blockSize,
+                1, BlockMat, p, 0, GridComm);
+            MPI_Send(matB.data() + (p % gridSize) * blockSize + (p / gridSize) * orderM * blockSize,
+                1, BlockMat, p, 1, GridComm);
+        }
+    } else {
+        MPI_Recv(blockA.data(), blockSize * blockSize, MPI_DOUBLE, 0, 0, GridComm, &status);
+        MPI_Recv(blockB.data(), blockSize * blockSize, MPI_DOUBLE, 0, 1, GridComm, &status);
+    }
+    for (int i = 0; i < gridSize; i++) {
+        std::vector<double> tmpblockA(blockSize * blockSize);
+        int pivot = (gridCoords[0] + i) % gridSize;
+        if (gridCoords[1] == pivot) {
+            tmpblockA = blockA;
+        }
+        MPI_Bcast(tmpblockA.data(), blockSize * blockSize, MPI_DOUBLE, pivot, RowComm);
+        BlockMult(tmpblockA.data(), blockB.data(), blockC.data(), blockSize);
+        int nextPr = gridCoords[0] + 1;
+        if (gridCoords[0] == gridSize - 1)
+            nextPr = 0;
+        int prevPr = gridCoords[0] - 1;
+        if (gridCoords[0] == 0)
+            prevPr = gridSize - 1;
+        MPI_Sendrecv_replace(blockB.data(), blockSize * blockSize, MPI_DOUBLE, prevPr, 0, nextPr , 0, ColComm, &status);
+    }
+    std::vector<double> resultM(orderM * orderM);
+    if (ProcRank == 0) {
+        for (int i = 0; i < blockSize; i++) {
+            for (int j = 0; j < blockSize; j++)
+                resultM[i * orderM + j] = blockC[i * blockSize + j];
+        }
+    }
+    if (ProcRank != 0) {
+        MPI_Send(blockC.data(), blockSize * blockSize, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+    } else {
+        for (int p = 1; p < ProcNum; p++) {
+            MPI_Recv(resultM.data() + (p % gridSize) * blockSize + (p / gridSize) * orderM * blockSize,
+                blockSize * blockSize, BlockMat, p, 3, MPI_COMM_WORLD, &status);
+        }
+    }
+    MPI_Type_free(&BlockMat);
+    return resultM;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+// Copyright 2020 Makarychev Sergey
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include "./foxes_algorithm.h"
+
+TEST(Parallel_Operations_MPI, Test_9) {
+    int rank, ProcNum;
+    double beginT, beginT1, endT, endT1;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double> matA;
+    std::vector<double> matB;
+    std::vector<double> resultPar;
+    int size = 9;
+    int gridSize = static_cast<int>(sqrt(ProcNum));
+    if (gridSize * gridSize == ProcNum) {
+        int remains = size % gridSize;
+        if (remains)
+            size += gridSize - (size % gridSize);
+        if (rank == 0) {
+            matA = getRandomMatrix(size);
+            matB = getRandomMatrix(size);
+        }
+        beginT1 = MPI_Wtime();
+        resultPar = foxsAlgorithm(matA, matB, size);
+        if (rank == 0) {
+            endT1 = MPI_Wtime();
+            beginT = MPI_Wtime();
+            std::vector<double> resultSeq = seqMult(matA, matB, size);
+            endT = MPI_Wtime();
+            std::cout << "MPI time:  " << endT1 - beginT1 << std::endl;
+            std::cout << "SEQ time: " << endT - beginT << std::endl;
+            std::cout << "efficiency: " << (endT - beginT) / (endT1 - beginT1) << std::endl;
+            ASSERT_TRUE(compareMat(resultPar, resultSeq));
+        }
+    } else {
+        if (rank == 0) {
+            ASSERT_FALSE(0);
+        }
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_67) {
+    int rank, ProcNum;
+    double beginT, beginT1, endT, endT1;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double> matA;
+    std::vector<double> matB;
+    std::vector<double> resultPar;
+    int size = 67;
+    int gridSize = static_cast<int>(sqrt(ProcNum));
+    if (gridSize * gridSize == ProcNum) {
+        int remains = size % gridSize;
+        if (remains)
+            size += gridSize - (size % gridSize);
+        if (rank == 0) {
+            matA = getRandomMatrix(size);
+            matB = getRandomMatrix(size);
+        }
+        beginT1 = MPI_Wtime();
+        resultPar = foxsAlgorithm(matA, matB, size);
+        if (rank == 0) {
+            endT1 = MPI_Wtime();
+            beginT = MPI_Wtime();
+            std::vector<double> resultSeq = seqMult(matA, matB, size);
+            endT = MPI_Wtime();
+            std::cout << "MPI time:  " << endT1 - beginT1 << std::endl;
+            std::cout << "SEQ time: " << endT - beginT << std::endl;
+            std::cout << "efficiency: " << (endT - beginT) / (endT1 - beginT1) << std::endl;
+            ASSERT_TRUE(compareMat(resultPar, resultSeq));
+        }
+    } else {
+        if (rank == 0) {
+            ASSERT_FALSE(0);
+        }
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_90) {
+    int rank, ProcNum;
+    double beginT, beginT1, endT, endT1;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double> matA;
+    std::vector<double> matB;
+    std::vector<double> resultPar;
+    int size = 300;
+    int gridSize = static_cast<int>(sqrt(ProcNum));
+    if (gridSize * gridSize == ProcNum) {
+        int remains = size % gridSize;
+        if (remains)
+            size += gridSize - (size % gridSize);
+        if (rank == 0) {
+            matA = getRandomMatrix(size);
+            matB = getRandomMatrix(size);
+        }
+        beginT1 = MPI_Wtime();
+        resultPar = foxsAlgorithm(matA, matB, size);
+        if (rank == 0) {
+            endT1 = MPI_Wtime();
+            beginT = MPI_Wtime();
+            std::vector<double> resultSeq = seqMult(matA, matB, size);
+            endT = MPI_Wtime();
+            std::cout << "MPI time:  " << endT1 - beginT1 << std::endl;
+            std::cout << "SEQ time: " << endT - beginT << std::endl;
+            std::cout << "efficiency: " << (endT - beginT) / (endT1 - beginT1) << std::endl;
+            ASSERT_TRUE(compareMat(resultPar, resultSeq));
+        }
+    } else {
+        if (rank == 0) {
+            ASSERT_FALSE(0);
+        }
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_150) {
+    int rank, ProcNum;
+    double beginT, beginT1, endT, endT1;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double> matA;
+    std::vector<double> matB;
+    std::vector<double> resultPar;
+    int size = 1500;
+    int gridSize = static_cast<int>(sqrt(ProcNum));
+    if (gridSize * gridSize == ProcNum) {
+        int remains = size % gridSize;
+        if (remains)
+            size += gridSize - (size % gridSize);
+        if (rank == 0) {
+            matA = getRandomMatrix(size);
+            matB = getRandomMatrix(size);
+        }
+        beginT1 = MPI_Wtime();
+        resultPar = foxsAlgorithm(matA, matB, size);
+        if (rank == 0) {
+            endT1 = MPI_Wtime();
+            beginT = MPI_Wtime();
+            std::vector<double> resultSeq = seqMult(matA, matB, size);
+            endT = MPI_Wtime();
+            std::cout << "MPI time:  " << endT1 - beginT1 << std::endl;
+            std::cout << "SEQ time: " << endT - beginT << std::endl;
+            std::cout << "efficiency: " << (endT - beginT) / (endT1 - beginT1) << std::endl;
+            ASSERT_TRUE(compareMat(resultPar, resultSeq));
+        }
+    } else {
+        if (rank == 0) {
+            ASSERT_FALSE(0);
+        }
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_229) {
+    int rank, ProcNum;
+    double beginT, beginT1, endT, endT1;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double> matA;
+    std::vector<double> matB;
+    std::vector<double> resultPar;
+    int size = 2200;
+    int gridSize = static_cast<int>(sqrt(ProcNum));
+    if (gridSize * gridSize == ProcNum) {
+        int remains = size % gridSize;
+        if (remains)
+            size += gridSize - (size % gridSize);
+        if (rank == 0) {
+            matA = getRandomMatrix(size);
+            matB = getRandomMatrix(size);
+        }
+        beginT1 = MPI_Wtime();
+        resultPar = foxsAlgorithm(matA, matB, size);
+        if (rank == 0) {
+            endT1 = MPI_Wtime();
+            beginT = MPI_Wtime();
+            std::vector<double> resultSeq = seqMult(matA, matB, size);
+            endT = MPI_Wtime();
+            std::cout << "MPI time:  " << endT1 - beginT1 << std::endl;
+            std::cout << "SEQ time: " << endT - beginT << std::endl;
+            std::cout << "efficiency: " << (endT - beginT) / (endT1 - beginT1) << std::endl;
+            ASSERT_TRUE(compareMat(resultPar, resultSeq));
+        }
+    } else {
+        if (rank == 0) {
+            ASSERT_FALSE(0);
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
