@@ -1,0 +1,636 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение разреженных матриц. Элементы типа double. 
+Формат хранения матрицы – столбцовый (CCS).»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-3 \\ Кузнецов Н. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Алгебра разреженных матриц (Sparse algebra) является важным разделом
+математики, имеющее практическое применение. Разреженные матрицы
+встречаются при постановке и решении задач в различных научных и
+технических областях. Например, при возникновении оптимизационных задач
+большой размерности с линейными ограничениями. Такие матрицы формируются
+при численном решении дифференциальных уравнений в частных производных, а
+также в теории графов.
+\par В первую очередь разберемся с понятием разреженная матрица. В одном
+из источников дается такое понятие разреженной матрицы: разреженной
+называют матрицу, имеющую малый процент ненулевых элементов. В ряде
+других источников встречается такая формулировка: матрица NxN называется
+разреженной, если количество ее ненулевых элементов есть O(N). Нельзя сказать,
+что данные определения являются точными в математическом смысле. Причиной
+этому можно считать то, что как показывает практика, классификация матрицы
+зависит не только от количества ненулевых элементов, но и от размера матрицы,
+распределения ненулевых элементов, архитектуры вычислительной системы и
+используемых алгоритмов.
+\par В данной лабораторной работе будет рассмотрено умножение разреженных матриц NxN с форматом хранения CCS (CompressedSparseColumn). Умножение данных матриц будет распараллелена между процессами, что сильно уменьшит время её выполнения.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо разработать последовательную и параллельную реализации умножения разреженных матриц NxN. По полученным результатам сделать выводы.
+\par Для реализации параллельной версии необходимо использовать средства MPI. Для проверки корректности работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Метод решения
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+\par Пусть даны разреженные матрицы A и B размера NxN, представленные в формате CCS. Требуется найти скалярное произведение векторов (V1, V2), где V1 и V2 столбцы матриц А и B соответственно.
+\par Разреженное  представление матриц вносит ряд особенностей в стандартный алгоритм умножения:
+\begin{itemize}
+\item Необходимо уметь выделять вектора в матрицах A и B (A*B = C): строки матрицы A и столбцы матрицы B. Выделить столбец матрицы в формате CCS не представляет труда: j-ый столбец может быть легко найден, так  как его элементами  являются элементыв  массиве Values с ColumnIndex[j] по ColIndexes[j+1]-1. Проблема возникает с выделением строки. Чтобы найти элементы строки i необходимо просмотреть массив Rows и выделить все элементы, у которых в соответствующей ячейке массива Rows записано число i. Одним из возможных решением описанной проблемы является транспонирование матрицы. В данной работе реализован именно такой подход.
+\item Используемая структура  данных,  построенная  на  основе  формата CCS, предполагает хранение только ненулевых элементов, что несколько усложняет программирование вычисления скалярного произведения, но одновременно уменьшает количество арифметических операций. Требуется выполнить сопоставление номеров ненулевых элементов сцелью обна-ружения пар значений, которые необходимоперемножить и накопить в частичную сумму.
+\item Необходимо также уметь записывать посчитанные  элементы в результирующую матрицу C. Учитывая, что C хранится в формате CCS, важно избежать перепаковок. Для этого нужно обеспечить пополнение матрицы C ненулевыми элементами последовательно, по столбцам сверху вниз, слева направо.
+\end{itemize}
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par Для решения описанной задачи в данной лабораторной работе реализован следующий алгоритм:
+\begin{itemize}
+\item Создать целочисленный массив Y длины N и инициализировать его элементы значением -1. Обнулить вещественную переменную "local-result".
+\item Просмотреть в цикле  все ненулевые элементы первого вектора V1. Пусть такой элемент с порядковым номером j расположен в строке с номером i= A.JA[j], тогда записать j в i-ю ячейку массива Y.
+\item Просмотреть в цикле все ненулевые элементы второго вектора V2. Пусть элемент с порядковым номером t расположен в строке с номером p = B.JA[t]. Проверить значение Y[k]. Если оно равно -1, в V1 нет соответствующего элемента, т.е. умножение выполнять не нужно.  Иначе умножаем A.val[i] и B.val[j] и накапливаем в "local-result". А потом общий результат заносим переменную "overal-result".
+\end{itemize}
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Прежде чем производить операции разреженной матрицей, необходимо применить к ней стандарт хранения CCS, для этого используется следующая структура:
+\begin{lstlisting}
+struct sparseMatrix {};
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item значение элемента;
+\item индекс столбца;
+\item число столбцов;
+\item колличество ненудевых значений;
+\item перегруженная функция для перемножения матриц.
+\end{itemize}
+\par Алгоритм последовательной функции перемножения разреженных матриц вызывается при помощи:
+\begin{lstlisting}
+const std::vector<double> operator*(const sparseMatrix& A, const sparseMatrix& B);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на первую матрицу;
+\item ссылка на вторую матрицу.
+\end{itemize}
+\par Для реализации последовательной и параллельной функции перемножения разреженных матриц, необходима функция, которая будет преобразовывать матрицу в структуру CCS.
+\begin{lstlisting}
+sparseMatrix CCS(const std::vector<double> new_mat, const int new_cols, const int new_rows);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item ссылка на матрицу;
+\item колличество столбцов;
+\item колличество строк.
+\end{itemize}
+\par Алгоритм параллельного умножения разреженных матриц вызывается с помощью функции:
+\begin{lstlisting}
+std::vector<double> matMultiply(sparseMatrix A, sparseMatrix B);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item первая матрица;
+\item вторая матрица.
+\end{itemize}
+\par Создание разреженной матриц с заданым занчением строк и столбцов, заполнение значений которых реализована с помощью алгоритма:
+\begin{lstlisting}
+std::vector<double> randMat(const int rows, const int cols);
+\end{lstlisting}
+\par В качестве входных параметров передаются:
+\begin{itemize}
+\item целое колличество строк;
+\item целое колличество столбцов.
+\end{itemize}
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+\par Набор представляет из себя тесты, которые проверяют из себя: проверку генерации случайном матрицы, если размер отрицателен; проверяет корректность работы последовательного метода и параллельного; сопоставляет результаты последовательной и параллельной функции, также выводит эффективность их выполнения.
+\par Успешное прохождение всех тестов доказывает корректность работы всей программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельной линейной фильтрации изображения фильтром Гаусса производились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel Core i7 4770, 3400 MHz, ядер: 4;
+\item Оперативная память: 16384 МБ (DDR3), 1866 MHz;
+\item ОС: Microsoft Windows 10 Pro, сборка 19041.685.
+\end{itemize}
+
+\par Для начала проведём эксперимент умножения разреженных матриц размером 50x50. 
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        & 0.0010882          & 0.0013399     & 0.81       \\
+2        & 0.0012863         & 0.0007616     & 1.69       \\
+3        & 0.0010821         & 0.0004706     & 2.30       \\
+4        & 0.0010917         & 0.0004474     & 2.44       \\
+6        & 0.0009434         & 0.000384     & 2.46       \\
+10        & 0.0009145        & 0.00035     & 2.61
+\end{tabular}
+\end{table}
+
+\par Теперь проведём эксперимент умножения разреженных матриц размером 500x500.
+\par Результаты экспериментов представлены в Таблице 2.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{p{3cm} p{4cm} p{4cm} p{4cm}}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+1        & 5.57983          & 5.42634     & 1.02       \\
+2        & 5.37545         & 2.69411     & 1.99       \\
+3        & 5.25182         & 1.843     & 2.85       \\
+4        & 5.38239         & 1.56058     & 3.45       \\
+6        & 5.24607         & 1.25205     & 4.19       \\
+10        & 5.4055         & 1.1072     & 5.04
+\end{tabular}
+\end{table}
+\newpage
+
+\par Исходя из полученных данных, можно сделать вывод, что эффективность также растёт с увеличением процессов. Также можно заметить, что чем больше элементов нужно обработать, тем лучше с этим справляется параллельная реализация, по сравнению с последовательной. Таким образом применять параллельную реализацию к большеразмерным матрицам выгоднее, чем к малоразмерным.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были разработаны последовательная и параллельная реализации умножения разреженных матриц NxN.
+\par Основной задачей данной лабораторной работы была реализация параллельной версии, которая должна была быть эффективнее последовательной. Эта задача была успешно достигнута, о чем говорят результаты экспериментов, проведенных в ходе работы. Они показывают, что параллельный вариант работает действительно быстрее, чем последовательный, причём скорость выполнения можно развить очень сильно, если будет много одновременно выполняющихся процессов.
+\par Кроме того, были разработаны и доведены до успешного выполнения тесты, созданные для данного программного проекта с использованием Google C++ Testing Framework и необходимые для подтверждения корректности работы программы.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Гергель В. П. Теория и практика параллельных вычислений. – 2007. 
+\bibitem{Gergel}
+Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\bibitem{Korneev}
+Корнеев В. Д. Параллельное программирование в MPI //Новосибирск: Изд-во СО РАН. – 2000.
+\bibitem{Algorithm}
+Богоявленский А.И. Использование форматов хранения разреженных матриц при реализации метода конечных элементов
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В данном разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// mult_sparse_mat.h
+
+// Copyright 2020 Kuznetsov Nikita
+#ifndef MODULES_TASK_3_KUZNETSOV_MULT_SPARSE_MAT_MULT_SPARSE_MAT_H_
+#define MODULES_TASK_3_KUZNETSOV_MULT_SPARSE_MAT_MULT_SPARSE_MAT_H_
+
+#include <vector>
+
+struct sparseMatrix {
+  std::vector<double> val;
+  std::vector<int> JA;
+  std::vector<int> IA;
+  int cols, rows, not_null;
+  friend const std::vector<double> operator*(const sparseMatrix& A, const sparseMatrix& B);
+};
+
+sparseMatrix CCS(const std::vector<double> new_mat, const int new_cols, const int new_rows);
+std::vector<double> randMat(const int rows, const int cols);
+std::vector<double> matMultiply(sparseMatrix A, sparseMatrix B);
+
+#endif  // MODULES_TASK_3_KUZNETSOV_MULT_SPARSE_MAT_MULT_SPARSE_MAT_H_
+
+
+\end{lstlisting}
+\begin{lstlisting}
+// mult_sparse_mat.cpp
+
+// Copyright 2020 Kuznetsov Nikita
+#include <mpi.h>
+#include <vector>
+#include <random>
+#include <ctime>
+#include "../../../modules/task_3/kuznetsov_mult_sparse_mat/mult_sparse_mat.h"
+
+std::vector<double> randMat(const int cols, const int rows) {
+  if (rows <= 0 || cols <= 0) {
+    throw - 1;
+  }
+  std::srand(std::time(nullptr));
+  std::vector<double> res(cols * rows);
+  for (int i = 0; i < rows * cols; i++) {
+    double val_rand = static_cast<double>(std::rand() % 50 + 1);
+    if (val_rand < 4) {
+      res[i] = val_rand;
+    } else {
+      res[i] = 0;
+    }
+  }
+  return res;
+}
+
+sparseMatrix CCS(const std::vector<double> new_mat, const int new_cols, const int new_rows) {
+  if (new_cols <= 0 || new_rows <= 0) {
+    throw - 1;
+  }
+  sparseMatrix res;
+  res.cols = new_cols;
+  res.rows = new_rows;
+  res.not_null = 0;
+  res.JA.push_back(0);
+  for (int column = 0; column < new_cols; column++) {
+    int not_null_count = 0;
+    for (int i = column; i <= (new_rows - 1) * new_cols + column;
+      i += new_cols) {
+      if (new_mat[i] != 0) {
+        not_null_count++;
+        res.val.push_back(new_mat[i]);
+        res.IA.push_back((i - column) / new_cols);
+      }
+    }
+    res.JA.push_back(res.JA.back() + not_null_count);
+    res.not_null += not_null_count;
+  }
+  return res;
+}
+
+const std::vector<double> operator*(const sparseMatrix& A, const sparseMatrix& B) {
+  if (A.cols != B.rows) {
+    throw - 1;
+  }
+  std::vector<double> result(A.rows * B.cols, 0);
+  for (int col = 0; col < A.cols; col++) {
+    for (int b_col = 0; b_col < B.cols; b_col++) {
+      for (int i = A.JA[col]; i <= A.JA[col + 1] - 1; i++) {
+        if (B.JA[b_col + 1] - B.JA[b_col] == 0) {
+          continue;
+        }
+        for (int j = B.JA[b_col]; j <= B.JA[b_col + 1] - 1; j++) {
+          if (B.IA[j] == col) {
+            result[A.IA[i] * B.cols + b_col] += A.val[i] * B.val[j];
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+std::vector<double> matMultiply(sparseMatrix A, sparseMatrix B) {
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (size == 1) {
+    return A * B;
+  }
+  MPI_Bcast(&A.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&A.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&A.not_null, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&B.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&B.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&B.not_null, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (A.not_null == 0 || B.not_null == 0) {
+    if (rank == 0) {
+      return A * B;
+    } else {
+      return std::vector<double>();
+    }
+  }
+  if (A.cols != B.rows) {
+    throw - 1;
+  }
+  if (A.cols < size) {
+    if (rank == 0) {
+      return A * B;
+    } else {
+      return std::vector<double>();
+    }
+  }
+  if (rank != 0) {
+    A.val.resize(A.not_null);
+    A.IA.resize(A.not_null);
+    A.JA.resize(A.cols + 1);
+  }
+  MPI_Bcast(&A.val[0], A.not_null, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&A.IA[0], A.not_null, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&A.JA[0], A.cols + 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (rank != 0) {
+    B.val.resize(B.not_null);
+    B.IA.resize(B.not_null);
+    B.JA.resize(B.cols + 1);
+  }
+  MPI_Bcast(&B.val[0], B.not_null, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&B.IA[0], B.not_null, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&B.JA[0], B.cols + 1, MPI_INT, 0, MPI_COMM_WORLD);
+  int delta = A.cols / size;
+  int l_bound = rank * delta;
+  int r_bound = (rank + 1) * delta;
+  if (rank == size - 1) {
+    r_bound = A.cols;
+  }
+  std::vector<double> local_result(A.rows * B.cols);
+  for (int col = l_bound; col < r_bound; col++) {
+    for (int b_col = 0; b_col < B.cols; b_col++) {
+      for (int i = A.JA[col]; i <= A.JA[col + 1] - 1; i++) {
+        if (B.JA[b_col + 1] - B.JA[b_col] == 0) {
+          continue;
+        }
+        for (int j = B.JA[b_col]; j <= B.JA[b_col + 1] - 1; j++) {
+          if (B.IA[j] == col) {
+            local_result[A.IA[i] * B.cols + b_col] += A.val[i] * B.val[j];
+          }
+        }
+      }
+    }
+  }
+  std::vector<double> overal_result;
+  if (rank == 0) {
+    overal_result.resize(A.rows * B.cols);
+  }
+  if (rank == 0) {
+    MPI_Reduce(&local_result[0], &overal_result[0], A.rows * B.cols, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  } else {
+    MPI_Reduce(&local_result[0], MPI_IN_PLACE, A.rows * B.cols, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  }
+  return overal_result;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+// 50x50 matrix
+
+// Copyright 2020 Kuznetsov Nikita
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <mpi.h>
+#include <vector>
+#include "./mult_sparse_mat.h"
+#define SIZE 50
+
+TEST(MULTIPLY_SPARSE_MATRIX, THROWS_WHEN_SIZE_IS_NEGATIVE) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    ASSERT_ANY_THROW(randMat(-10, -10));
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, THROWS_WHEN_SIZE_IS_ZERO) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    ASSERT_ANY_THROW(randMat(0, 0));
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, SEQ_METHOD_EQUAL_EXP_RES) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    sparseMatrix A = CCS(std::vector<double>{0, 0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0}, 3, 4);
+    sparseMatrix B = CCS(std::vector<double>{3, 0, 0, 0, 4, 0}, 2, 3);
+    std::vector<double> exp_res = { 4, 0, 0, 0, 12, 0, 0, 0 };
+    std::vector<double> res = A * B;
+    ASSERT_EQ(res, exp_res);
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, PARALLEL_METHOD_EQUAL_EXP_RES) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  sparseMatrix A, B;
+  if (rank == 0) {
+    A = CCS(std::vector<double>{0, 0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0}, 3, 4);
+    B = CCS(std::vector<double>{3, 0, 0, 0, 4, 0}, 2, 3);
+  }
+  std::vector<double> res = matMultiply(A, B);
+  if (rank == 0) {
+    std::vector<double> exp_res = { 4, 0, 0, 0, 12, 0, 0, 0 };
+    ASSERT_EQ(res, exp_res);
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, SEQ_EQUAL_PARALLEL_METHOD) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  sparseMatrix A, B;
+  if (rank == 0) {
+    A = CCS(randMat(SIZE, SIZE), SIZE, SIZE);
+    B = CCS(randMat(SIZE, SIZE), SIZE, SIZE);
+  }
+  double start2 = MPI_Wtime();
+  std::vector<double> par_res = matMultiply(A, B);
+  double finish2 = MPI_Wtime();
+  if (rank == 0) {
+    double start1 = MPI_Wtime();
+    std::vector<double> seq_res = A * B;
+    double finish1 = MPI_Wtime();
+    ASSERT_EQ(seq_res, par_res);
+    std::cout << "SEQ TIME = " << finish1 - start1 << std::endl << "PARALLEL TIME = " << finish2 - start2 << std::endl;
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+
+\end{lstlisting}
+\begin{lstlisting}
+// main.cpp
+// 500x500 matrix 
+
+// Copyright 2020 Kuznetsov Nikita
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <mpi.h>
+#include <vector>
+#include "./mult_sparse_mat.h"
+#define SIZE 500
+
+TEST(MULTIPLY_SPARSE_MATRIX, THROWS_WHEN_SIZE_IS_NEGATIVE) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    ASSERT_ANY_THROW(randMat(-10, -10));
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, THROWS_WHEN_SIZE_IS_ZERO) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    ASSERT_ANY_THROW(randMat(0, 0));
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, SEQ_METHOD_EQUAL_EXP_RES) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    sparseMatrix A = CCS(std::vector<double>{0, 0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0}, 3, 4);
+    sparseMatrix B = CCS(std::vector<double>{3, 0, 0, 0, 4, 0}, 2, 3);
+    std::vector<double> exp_res = { 4, 0, 0, 0, 12, 0, 0, 0 };
+    std::vector<double> res = A * B;
+    ASSERT_EQ(res, exp_res);
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, PARALLEL_METHOD_EQUAL_EXP_RES) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  sparseMatrix A, B;
+  if (rank == 0) {
+    A = CCS(std::vector<double>{0, 0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0}, 3, 4);
+    B = CCS(std::vector<double>{3, 0, 0, 0, 4, 0}, 2, 3);
+  }
+  std::vector<double> res = matMultiply(A, B);
+  if (rank == 0) {
+    std::vector<double> exp_res = { 4, 0, 0, 0, 12, 0, 0, 0 };
+    ASSERT_EQ(res, exp_res);
+  }
+}
+
+TEST(MULTIPLY_SPARSE_MATRIX, SEQ_EQUAL_PARALLEL_METHOD) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  sparseMatrix A, B;
+  if (rank == 0) {
+    A = CCS(randMat(SIZE, SIZE), SIZE, SIZE);
+    B = CCS(randMat(SIZE, SIZE), SIZE, SIZE);
+  }
+  double start2 = MPI_Wtime();
+  std::vector<double> par_res = matMultiply(A, B);
+  double finish2 = MPI_Wtime();
+  if (rank == 0) {
+    double start1 = MPI_Wtime();
+    std::vector<double> seq_res = A * B;
+    double finish1 = MPI_Wtime();
+    ASSERT_EQ(seq_res, par_res);
+    std::cout << "SEQ TIME = " << finish1 - start1 << std::endl << "PARALLEL TIME = " << finish2 - start2 << std::endl;
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
