@@ -1,0 +1,624 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Алгоритм Беллмана — Форда — Мура»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-1 \\ Зореев М. В.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2020 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+Для моделирования структур реального мира часто приходится прибегать к созданию моделей на графах. В таких моделях очень важна способность находить кратчайшие пути, как между двумя произвольными вершинами, так и от однной вершины до всех остальных в графе. Для решения этой задачи было разработано некоторое число алгоритмов, одним из которых является алгоритм Белмана — Форда — Мура. Его ключевым преимуществом перед другими является возможность работать с графами содержащими отрицательные рёбра.
+\addcontentsline{toc}{section}{Введение}
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо реализовать последовательную и параллельную реализации алгоритма Белмана — Форда — Мура, проверить корректность работы алгоритмов, провести эксперименты для оценки эффективности параллелизации. По полученным результатам сделать выводы.
+\par Для реализации параллельной версии необходимо использовать библиотеку межпроцессорного взаимодействия MPI. Для проверки корректности работы алгоритмов используется Google Testing Framework.
+\newpage
+
+% Описание алгоритмов
+\section*{Описание алгоритмов}
+\addcontentsline{toc}{section}{Описание алгоритмов}
+Алгоритм Белмана - Форда - Мура - это алгоритм поиска кратчайших путей во взвешенном графе, причём в отличии от алгоритма Дейкстры, алгоритм Белмана — Форда — Мура может принимать рёбра с отрицательным весом.
+\par Идея заключается в следующем: сначала мы задаём для всех вершин метки $d(u)$, означающие длину кратчайшего известного пути до вершины, при этом, в начале работы, корневой узел помечается $0$, а все остальные вершины $\infty$. Далее требуется совершить $n-1$ итераций - это число обусловленно тем, что на каждой $i$-ой итерации мы находим все кратчайшие пути из $i$ рёбер, а любой Гамильтонов путь в графе содержит не более $n-1$ рёбер. На каждом шаге мы просматриваем все рёбра $(u,v)$ и если находим такое, что $d(v)>d(u)+(u,v)$ то обновляем метку ребра $v$ на $d(u)+(u,v)$. После выполнения последней итерации значение метки вершины будет равно длине кратчайшего пути до неё, при этом если каждый раз когда мы обновляем метку веришны $v$ запоминать вершину $u$ предшествующую ей в кратчайшем пути, то можно по этим данным восстановить и само дерево кратчайших путей. Так же можно дополнительно провести ещё одну итерацию. Если в ходе этой последней итерации метка любой из вершин уменьшится, то в графе есть отрицательный цикл, и задача поиска кратчайших путей не имеет смысла.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Так как каждая итерация алгоритма зависит от результатов предыдущей, параллельная схема включает в себя только параллельный просмотр рёбер в ходе очередной итерации. Для этого, до первой итерации, каждый узел определяет вершины, из которых должны выходить рёбра, которые узел будет просматривать. Каждый узел выбирает одинаковое число вершин, но если число вершин не делиться нацело на число узлов, то последний узел обработает оставшиеся вершины.
+\par Каждый узел имеет свои метки, и данные о предке узла. На каждой итерации узел просматривает только свои рёбра, и при необходимости обновляет метки. После окончания итерации узлы обмениваются метками и данными о предках, если оказывается, что какой-то другой узел нашёл более короткий путь в вершину, чем тот, что известен текущему узлу, то он обновляет свои данные. После этого начинается следующая итерация.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Дополнительно были реализованны функции упрощающие процесс тестирования работы алгоритма. 
+\par Данная функция генерирует случайный граф содержащий Гамильтонов путь:
+\begin{lstlisting}
+void randomGraphWithPath(size_t size, int64_t *graph);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер и буфер размера $n*n$ в который будет записана  матрица смежности графа.
+\par Данная функция генерирует случайный полный граф:
+\begin{lstlisting}
+void randomCompleteGraph(size_t size, int64_t *graph);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер и буфер размера $n*n$ в который будет записана  матрица смежности графа.
+\par Данная функция выводит на консоль матрицу смежности графа:
+\begin{lstlisting}
+void void printGraph(size_t size, int64_t *graph);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер и буфер размера $n*n$ в котором хранится матрица смежности графа.
+\par Данная функция выводит массив предков:
+\begin{lstlisting}
+void void printPredecessor(size_t size, uint64_t *predecessor);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер и буфер размера $n$ в котором хранятся предки вершин.
+
+\par Реализациия алгоритма представлена в следующих функциях:
+\par Последовательная версия алгоритма реализована в функции:
+\begin{lstlisting}
+void mooreAlgorithm(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер, буфер размера $n*n$ в котором хранится матрица смежности графа, буфер размера $n$ в кторый будут помещены длины кратчайших путей до каждой вершины, буфер размера $n$ в который будут помещены предки вершин и индекс корневой вершины. Функция возвращает значения через свои параметры.
+\par Параллельная версия алгоритма реализованна в функции:
+\begin{lstlisting}
+void mooreAlgorithm(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root);
+\end{lstlisting}
+\par Входными параметрами функции является число рёбер, буфер размера $n*n$ в котором хранится матрица смежности графа, буфер размера $n$ в кторый будут помещены длины кратчайших путей до каждой вершины, буфер размера $n$ в который будут помещены предки вершин и индекс корневой вершины. Функция возвращает значения через свои параметры
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с Google Testing Framework.
+\par Каждый тест подразумевает генерацию случайного графа, и поиск в нём крайтчайших путей, при этом замеряется время затраченное на получение результата.
+\par Для успешного прохождения теста требуется, чтобы последовательная и паралельная версия дали одинаковые данные по длинам кратчайших путей. Прохождение всех тестов подтверждает корректность работы написанной программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты для оценки эффективности проводились на ПК со следующими характеристиками:
+
+\begin{itemize}
+\item Процессор: Intel Core-i5 7200u, 2.70 GHz, 2 ядра;
+\item Оперативная память: 16 ГБ 2133 MHz;
+\item ОС: Microsoft Windows 10 Pro Build 19042.685.
+\end{itemize}
+
+\par Для замеров производительности алгоритм запускался для полного графа содержащего различное число рёбер.
+
+\begin{table}[!h]
+\caption{Результаты экспериментов}
+\centering
+\begin{tabular}{lllll}
+Вершины & Процессы & Последовательная & Параллельная & Ускорение \\
+600         & 2        & 0.279083        & 0.154033     & 1.8    \\
+800         & 2        & 0.653771        & 0.339906     & 1.96   \\
+1000        & 2        & 1.27363         & 0.614094     & 2.08   \\
+\end{tabular}
+\end{table}
+
+\par Исходя из результатов экспериментов, можно сделать вывод о том, что параллельная реализация работает быстрее, чем последовательная, при этом ускорение от параллелизма увеличивается с ростом числа вершин.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы были реализованы последовательная и параллельная реализации алгоритма Белмана - Форда - Мура.
+\par Проведённые эксперименты показали эффективность параллельного исполнения данного алгоритма.
+\par Кроме того, были написаны тесты с использованием Google Testing Framework, необходимые для подтверждения корректности работы программы.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{wikishell} Википедия: Bellman–Ford algorithm [Электронный ресурс] // URL: \url {https://en.wikipedia.org/wiki/Bellman–Ford_algorithm} (дата обращения: 03.12.2020)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В этом разделе находится листинг всего кода, написанного в рамках лабораторной работы.
+\begin{lstlisting}
+// moore_algorithm.h
+
+// Copyright 2020 Zoreev Mikhail
+#ifndef MODULES_TASK_3_ZOREEV_M_MOORE_ALGORITHM_MOORE_ALGORITHM_H_
+#define MODULES_TASK_3_ZOREEV_M_MOORE_ALGORITHM_MOORE_ALGORITHM_H_
+
+#include <mpi.h>
+
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <random>
+#include <stdexcept>
+
+void randomGraphWithPath(size_t size, int64_t *graph);
+
+void randomCompleteGraph(size_t size, int64_t *graph);
+
+void printGraph(size_t size, int64_t *graph);
+void printPredecessor(size_t size, uint64_t *predecessor);
+
+void mooreAlgorithm(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root);
+
+void mooreAlgorithmParallel(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root);
+
+#endif  // MODULES_TASK_3_ZOREEV_M_MOORE_ALGORITHM_MOORE_ALGORITHM_H_
+\end{lstlisting}
+\begin{lstlisting}
+//moore_algorithm.cpp
+
+// Copyright 2020 Zoreev Mikhail
+#include "../../../modules/task_3/zoreev_m_moore_algorithm/moore_algorithm.h"
+
+void randomGraphWithPath(size_t size, int64_t *graph) {
+    std::mt19937 generator;
+    generator.seed(static_cast<unsigned int>(time(0)));
+    for (size_t i = 0; i < size * size; i++) {
+        graph[i] = INT64_MIN;
+    }
+    for (size_t i = 0; i < size - 1; i++) {
+        graph[i * size + i + 1] = generator() % 10 + 1;
+        graph[(i + 1) * size + i] = generator() % 10 + 1;
+    }
+    for (size_t i = 0; i < size * size / 4; i++) {
+        graph[(generator() % size) * size + generator() % size] = generator() % 10;
+    }
+}
+
+void randomCompleteGraph(size_t size, int64_t *graph) {
+    std::mt19937 generator;
+    generator.seed(static_cast<unsigned int>(time(0)));
+    for (size_t i = 0; i < size; i++) {
+        for (size_t j = 0; j < size; j++) {
+            graph[i * size + j] = generator() % 10 + 1;
+        }
+    }
+    for (size_t i = 0; i < size; i++) {
+        graph[i * size + i] = INT64_MIN;
+    }
+}
+
+void printGraph(size_t size, int64_t *graph) {
+    for (size_t i = 0; i < size; i++) {
+        for (size_t j = 0; j < size; j++) {
+            if (graph[i * size + j] != INT64_MIN) {
+                std::cout << std::setw(2) << graph[i * size + j] << ' ';
+            } else {
+                std::cout << std::setw(2) << 'x' << ' ';
+            }
+        }
+        std::cout << std::endl;
+    }
+}
+
+void printPredecessor(size_t size, uint64_t *predecessor) {
+    for (size_t i = 0; i < size; i++) {
+        std::cout << std::setw(2) << predecessor[i] << ' ';
+    }
+    std::cout << std::endl;
+}
+
+void mooreAlgorithm(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root) {
+    if (size < 2) {
+        throw std::runtime_error("WRONG SIZE");
+    }
+    for (size_t i = 0; i < size; i++) {
+        distance[i] = INT32_MAX;
+        predecessor[i] = SIZE_MAX;
+    }
+    distance[root] = 0;
+    predecessor[root] = root;
+
+    for (size_t i = 0; i < size - 1; i++) {
+        for (size_t j = 0; j < size; j++) {
+            for (size_t k = 0; k < j; k++) {
+                if ((graph[j * size + k] != INT64_MIN) && (distance[k] > distance[j] + graph[j * size + k])) {
+                    distance[k] = distance[j] + graph[j * size + k];
+                    predecessor[k] = j;
+                }
+            }
+            for (size_t k = j + 1; k < size; k++) {
+                if ((graph[j * size + k] != INT64_MIN) && (distance[k] > distance[j] + graph[j * size + k])) {
+                    distance[k] = distance[j] + graph[j * size + k];
+                    predecessor[k] = j;
+                }
+            }
+        }
+    }
+}
+
+void mooreAlgorithmParallel(size_t size, int64_t *graph, int64_t *distance, uint64_t *predecessor, size_t root) {
+    int rank, process_count;
+    MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (size < 2) {
+        throw std::runtime_error("WRONG SIZE");
+    }
+    int64_t *distance_buffer = new int64_t[size * process_count];
+    uint64_t *predecessor_buffer = new uint64_t[size * process_count];
+    for (size_t i = 0; i < size; i++) {
+        distance[i] = INT32_MAX;
+        predecessor[i] = SIZE_MAX;
+    }
+    distance[root] = 0;
+    predecessor[root] = root;
+
+    size_t part = size / static_cast<size_t>(process_count);
+    size_t start = rank * part, end = (rank + 1) * part;
+    if (rank == process_count - 1) {
+        end = size;
+    }
+    for (size_t i = 0; i < size - 1; i++) {
+        for (size_t j = start; j < end; j++) {
+            for (size_t k = 0; k < j; k++) {
+                if ((graph[j * size + k] != INT64_MIN) && (distance[k] > distance[j] + graph[j * size + k])) {
+                    distance[k] = distance[j] + graph[j * size + k];
+                    predecessor[k] = j;
+                }
+            }
+            for (size_t k = j + 1; k < size; k++) {
+                if ((graph[j * size + k] != INT64_MIN) && (distance[k] > distance[j] + graph[j * size + k])) {
+                    distance[k] = distance[j] + graph[j * size + k];
+                    predecessor[k] = j;
+                }
+            }
+        }
+
+        MPI_Allgather(distance, static_cast<int>(size), MPI_INT64_T, distance_buffer, static_cast<int>(size),
+                      MPI_INT64_T, MPI_COMM_WORLD);
+        MPI_Allgather(predecessor, static_cast<int>(size), MPI_UINT64_T, predecessor_buffer, static_cast<int>(size),
+                      MPI_UINT64_T, MPI_COMM_WORLD);
+        for (size_t k = 0; k < size; k++) {
+            for (size_t j = 0; j < static_cast<size_t>(process_count); j++) {
+                if (distance_buffer[j * size + k] < distance[k]) {
+                    distance[k] = distance_buffer[j * size + k];
+                    predecessor[k] = predecessor_buffer[j * size + k];
+                }
+            }
+        }
+    }
+    delete[] distance_buffer;
+    delete[] predecessor_buffer;
+}
+
+\end{lstlisting}
+\begin{lstlisting}
+//main.cpp
+
+// Copyright 2020 Zoreev Mikhail
+
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <mpi.h>
+
+#include "../../../modules/task_3/zoreev_m_moore_algorithm/moore_algorithm.h"
+
+TEST(Moore_Algotithm_MPI, SpeedAndQualtiyTestTemplate) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 600;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomCompleteGraph(size, graph);
+        //printGraph(size, graph);  // <- Remove on speed test
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+        //printPredecessor(size, seqential_preducessor);  // <- Remove on speed test
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        //printPredecessor(size, parallel_preducessor);  // <- Remove on speed test
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+TEST(Moore_Algotithm_MPI, TestCompleGraph8) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 8;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomCompleteGraph(size, graph);
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+TEST(Moore_Algotithm_MPI, TestCompleGraph16) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 16;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomCompleteGraph(size, graph);
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+TEST(Moore_Algotithm_MPI, TestCompleGraph32) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 32;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomCompleteGraph(size, graph);
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+TEST(Moore_Algotithm_MPI, TestGraphWithPath64) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 64;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomGraphWithPath(size, graph);
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+TEST(Moore_Algotithm_MPI, TestGraphWithPath101) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    size_t size = 101;
+    int64_t *graph = new int64_t[size * size];
+    int64_t *seqential_distance = nullptr;
+    uint64_t *seqential_preducessor = nullptr;
+    if (rank == 0) {
+        randomGraphWithPath(size, graph);
+        double begin_time = MPI_Wtime();
+        seqential_distance = new int64_t[size];
+        seqential_preducessor = new uint64_t[size];
+        mooreAlgorithm(size, graph, seqential_distance, seqential_preducessor, 0);
+        double end_time = MPI_Wtime();
+        std::cout << "Seqential: " << end_time - begin_time << std::endl;
+    }
+    MPI_Bcast(graph, static_cast<int>(size * size), MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    double begin_time = MPI_Wtime();
+    int64_t *parallel_distance = new int64_t[size];
+    uint64_t *parallel_preducessor = new uint64_t[size];
+    mooreAlgorithmParallel(size, graph, parallel_distance, parallel_preducessor, 0);
+    double end_time = MPI_Wtime();
+    if (rank == 0) {
+        std::cout << "Parallel: " << end_time - begin_time << std::endl;
+        for (size_t i = 0; i < size; i++) {
+            ASSERT_EQ(seqential_distance[i], parallel_distance[i]);
+        }
+        delete[] seqential_distance;
+        delete[] seqential_preducessor;
+    }
+
+    delete[] graph;
+    delete[] parallel_distance;
+    delete[] parallel_preducessor;
+}
+
+int main(int argc, char *argv[]) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners &listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
